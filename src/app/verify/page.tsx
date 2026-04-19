@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi, tokenUtils } from '@/lib/api';
 import { ROUTES } from '@/lib/constants';
 
-export default function VerifyPage() {
+function VerifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<'verifying' | 'onboarding' | 'completing' | 'success' | 'error'>('verifying');
@@ -274,5 +274,19 @@ export default function VerifyPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense 
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-bg-primary p-4">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-accent-primary border-t-transparent"></div>
+        </div>
+      }
+    >
+      <VerifyContent />
+    </Suspense>
   );
 }
