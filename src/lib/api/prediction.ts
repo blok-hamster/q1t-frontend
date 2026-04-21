@@ -1,6 +1,6 @@
 import { api } from './client';
 import { API_ENDPOINTS } from '@/lib/constants';
-import type { Prediction, PredictionHistory, PredictionStats } from '@/types/prediction';
+import type { Prediction, PredictionHistory, PredictionStats, AccuracyStats } from '@/types/prediction';
 
 /**
  * Prediction API endpoints
@@ -44,5 +44,12 @@ export const predictionApi = {
    */
   getById: async (id: string): Promise<{ prediction: Prediction }> => {
     return api.get<{ prediction: Prediction }>(API_ENDPOINTS.PREDICTIONS_BY_ID(id));
+  },
+
+  /**
+   * Get accuracy comparison stats (AI vs Technicals vs Combined)
+   */
+  getAccuracy: async (): Promise<AccuracyStats> => {
+    return api.get<AccuracyStats>(API_ENDPOINTS.PREDICTIONS_ACCURACY);
   },
 };

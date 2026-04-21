@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency, formatCountdown } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import type { AISignal } from '@/types/websocket';
-import { Bot, TrendingUp, TrendingDown, Target, Clock } from 'lucide-react';
+import { Bot, TrendingUp, TrendingDown, Target, Clock, ShieldAlert, Activity } from 'lucide-react';
 
 interface AISignalCardProps {
   signal: AISignal | null;
@@ -57,7 +57,15 @@ export function AISignalCard({ signal, className }: AISignalCardProps) {
   }
 
   const isUp = signal.direction === 'UP';
+  const isHold = signal.filter_passed === false;
   const DirectionIcon = isUp ? TrendingUp : TrendingDown;
+
+  const regimeColors: Record<string, string> = {
+    TRENDING: 'bg-positive/20 text-positive',
+    RANGING: 'bg-accent-primary/20 text-accent-primary',
+    VOLATILE: 'bg-warning/20 text-warning',
+    CHOPPY: 'bg-negative/20 text-negative',
+  };
 
   return (
     <Card className={cn('animate-slide-up', className)}>
@@ -69,9 +77,13 @@ export function AISignalCard({ signal, className }: AISignalCardProps) {
           </div>
         }
         action={
-          <Badge variant="info" dot>
-            Live
-          </Badge>
+          isHold ? (
+            <Badge variant="warning">HOLD</Badge>
+          ) : (
+            <Badge variant="success" dot>
+              TRADE
+            </Badge>
+          )
         }
       />
 
@@ -82,27 +94,61 @@ export function AISignalCard({ signal, className }: AISignalCardProps) {
             <div
               className={cn(
                 'inline-flex items-center justify-center w-16 h-16 rounded-full mb-3',
-                isUp ? 'bg-positive/20' : 'bg-negative/20'
+                isHold
+                  ? 'bg-bg-tertiary'
+                  : isUp
+                  ? 'bg-positive/20'
+                  : 'bg-negative/20'
               )}
             >
-              <DirectionIcon
-                className={cn('h-8 w-8', isUp ? 'text-positive' : 'text-negative')}
-              />
+              {isHold ? (
+                <ShieldAlert className="h-8 w-8 text-text-tertiary" />
+              ) : (
+                <DirectionIcon
+                  className={cn('h-8 w-8', isUp ? 'text-positive' : 'text-negative')}
+                />
+              )}
             </div>
 
             <div className="space-y-1">
               <h3
                 className={cn(
                   'text-3xl font-bold',
-                  isUp ? 'text-positive' : 'text-negative'
+                  isHold
+                    ? 'text-text-tertiary'
+                    : isUp
+                    ? 'text-positive'
+                    : 'text-negative'
                 )}
               >
-                {signal.direction}
+                {isHold ? 'HOLD' : signal.direction}
               </h3>
               <p className="text-sm text-text-secondary">
-                Market Direction
+                {isHold ? signal.filter_reason || 'Signal filtered' : 'Market Direction'}
               </p>
             </div>
+          </div>
+
+          {/* Regime & Spread Row */}
+          <div className="flex items-center justify-between">
+            {signal.regime && (
+              <div
+                className={cn(
+                  'px-3 py-1 rounded-full text-xs font-semibold',
+                  regimeColors[signal.regime] || 'bg-bg-tertiary text-text-secondary'
+                )}
+              >
+                {signal.regime}
+              </div>
+            )}
+            {signal.spread != null && (
+              <div className="flex items-center gap-1 text-xs text-text-secondary">
+                <Activity className="h-3 w-3" />
+                <span className="font-mono">
+                  ${signal.spread.toFixed(2)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Confidence */}
@@ -115,7 +161,12 @@ export function AISignalCard({ signal, className }: AISignalCardProps) {
             {/* Confidence bar */}
             <div className="mt-3 h-2 bg-bg-tertiary rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-accent-primary to-positive transition-all duration-500"
+                className={cn(
+                  'h-full transition-all duration-500',
+                  isHold
+                    ? 'bg-gradient-to-r from-text-tertiary to-text-tertiary'
+                    : 'bg-gradient-to-r from-accent-primary to-positive'
+                )}
                 style={{ width: `${signal.confidence * 100}%` }}
               />
             </div>
@@ -177,6 +228,14 @@ export function AISignalCard({ signal, className }: AISignalCardProps) {
                 {signal.price_source?.replace(/_/g, ' ') || 'N/A'}
               </span>
             </div>
+            {signal.relative_spread != null && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-text-tertiary">Rel. Spread</span>
+                <span className="text-text-secondary font-mono">
+                  {(signal.relative_spread * 100).toFixed(4)}%
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Action Button */}

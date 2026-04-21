@@ -5,7 +5,7 @@ import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, formatTimeAgo } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
-import { TrendingUp, TrendingDown, Target, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, CheckCircle, XCircle, Clock, ShieldAlert } from 'lucide-react';
 import { predictionApi } from '@/lib/api';
 import type { Prediction, PredictionStats } from '@/types/prediction';
 
@@ -81,6 +81,7 @@ export function PredictionHistory({ className }: PredictionHistoryProps) {
               const isWin = pred.outcome === 'WIN';
               const isLoss = pred.outcome === 'LOSS';
               const isPending = pred.outcome === 'PENDING';
+              const isHold = pred.filter_passed === false;
 
               const DirectionIcon = isUp ? TrendingUp : TrendingDown;
               const OutcomeIcon = isWin ? CheckCircle : isLoss ? XCircle : Clock;
@@ -90,9 +91,12 @@ export function PredictionHistory({ className }: PredictionHistoryProps) {
                   key={pred._id}
                   className={cn(
                     'p-4 rounded-lg border transition-colors',
-                    isPending && 'bg-bg-tertiary border-border',
-                    isWin && 'bg-positive/10 border-positive/30',
-                    isLoss && 'bg-negative/10 border-negative/30'
+                    isHold && isPending && 'bg-bg-tertiary/50 border-border/50 opacity-75',
+                    isHold && isWin && 'bg-positive/5 border-positive/20 opacity-85',
+                    isHold && isLoss && 'bg-negative/5 border-negative/20 opacity-85',
+                    !isHold && isPending && 'bg-bg-tertiary border-border',
+                    !isHold && isWin && 'bg-positive/10 border-positive/30',
+                    !isHold && isLoss && 'bg-negative/10 border-negative/30'
                   )}
                 >
                   <div className="flex items-start justify-between mb-3">
@@ -101,45 +105,82 @@ export function PredictionHistory({ className }: PredictionHistoryProps) {
                       <div
                         className={cn(
                           'w-8 h-8 rounded-full flex items-center justify-center',
-                          isUp ? 'bg-positive/20' : 'bg-negative/20'
+                          isHold
+                            ? 'bg-bg-tertiary'
+                            : isUp
+                            ? 'bg-positive/20'
+                            : 'bg-negative/20'
                         )}
                       >
-                        <DirectionIcon
-                          className={cn('h-4 w-4', isUp ? 'text-positive' : 'text-negative')}
-                        />
+                        {isHold ? (
+                          <ShieldAlert className="h-4 w-4 text-text-tertiary" />
+                        ) : (
+                          <DirectionIcon
+                            className={cn('h-4 w-4', isUp ? 'text-positive' : 'text-negative')}
+                          />
+                        )}
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-text-primary">
-                          {pred.direction}
+                          {isHold ? 'HOLD' : pred.direction}
                         </p>
                         <p className="text-xs text-text-tertiary">
                           {(pred.confidence * 100).toFixed(0)}% confidence
+                          {pred.regime && (
+                            <span className="ml-1 text-text-tertiary">• {pred.regime}</span>
+                          )}
                         </p>
                       </div>
                     </div>
 
                     {/* Outcome */}
                     <div className="flex items-center gap-2">
-                      <OutcomeIcon
-                        className={cn(
-                          'h-5 w-5',
-                          isWin && 'text-positive',
-                          isLoss && 'text-negative',
-                          isPending && 'text-text-tertiary'
-                        )}
-                      />
-                      <span
-                        className={cn(
-                          'text-sm font-medium',
-                          isWin && 'text-positive',
-                          isLoss && 'text-negative',
-                          isPending && 'text-text-tertiary'
-                        )}
-                      >
-                        {pred.outcome}
-                      </span>
+                      {isHold && isPending ? (
+                        <Badge variant="default" size="sm">HOLD</Badge>
+                      ) : isHold && !isPending ? (
+                        <div className="flex items-center gap-1">
+                          <Badge variant="default" size="sm">HOLD</Badge>
+                          <span
+                            className={cn(
+                              'text-xs font-medium',
+                              isWin && 'text-positive',
+                              isLoss && 'text-negative'
+                            )}
+                          >
+                            {isWin ? '✓' : '✗'}
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <OutcomeIcon
+                            className={cn(
+                              'h-5 w-5',
+                              isWin && 'text-positive',
+                              isLoss && 'text-negative',
+                              isPending && 'text-text-tertiary'
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              'text-sm font-medium',
+                              isWin && 'text-positive',
+                              isLoss && 'text-negative',
+                              isPending && 'text-text-tertiary'
+                            )}
+                          >
+                            {pred.outcome}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
+
+                  {/* Filter reason for HOLD */}
+                  {isHold && pred.filter_reason && (
+                    <p className="text-xs text-text-tertiary mb-3 italic">
+                      {pred.filter_reason}
+                    </p>
+                  )}
 
                   {/* Price Details */}
                   <div className="grid grid-cols-3 gap-3 text-xs">

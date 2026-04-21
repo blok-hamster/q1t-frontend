@@ -27,6 +27,15 @@ export interface Prediction {
   price_source: PriceSource;
   market_slug: string;
 
+  // Signal filter fields
+  regime?: string;
+  spread?: number;
+  relative_spread?: number;
+  filter_passed?: boolean;
+  filter_reason?: string;
+  ai_direction?: PredictionDirection;
+  tech_direction?: PredictionDirection | null;
+
   // Resolution fields
   actual_close?: number;
   actual_direction?: PredictionDirection;
@@ -58,5 +67,32 @@ export interface PredictionHistory {
     skip: number;
     limit: number;
     total: number;
+  };
+}
+
+/**
+ * Accuracy comparison stats (AI vs Technicals vs Combined)
+ */
+export interface AccuracyStats {
+  ai: {
+    correct: number;
+    total: number;
+    winRate: string;
+  };
+  technicals: {
+    correct: number;
+    total: number;
+    winRate: string;
+  };
+  combined: {
+    correct: number;
+    total: number;
+    winRate: string;
+  };
+  holdAnalysis: {
+    wouldHaveWon: number;
+    wouldHaveLost: number;
+    total: number;
+    filterSavingsRate: string;
   };
 }

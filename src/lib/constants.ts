@@ -46,6 +46,7 @@ export const API_ENDPOINTS = {
   // Predictions
   PREDICTIONS_CURRENT: '/api/predictions/current',
   PREDICTIONS_HISTORY: '/api/predictions/history',
+  PREDICTIONS_ACCURACY: '/api/predictions/accuracy',
   PREDICTIONS_BY_ID: (id: string) => `/api/predictions/${id}`,
 
   // Dashboard

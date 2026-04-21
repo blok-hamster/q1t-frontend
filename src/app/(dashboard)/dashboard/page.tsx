@@ -11,6 +11,7 @@ import { ConnectionStatus } from '@/components/dashboard/connection-status';
 import { CandlestickChart } from '@/components/charts/candlestick-chart';
 import { VolumeBars } from '@/components/charts/volume-bars';
 import { PredictionHistory } from '@/components/dashboard/prediction-history';
+import { AccuracyComparison } from '@/components/dashboard/accuracy-comparison';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/lib/constants';
@@ -210,6 +211,7 @@ export default function DashboardPage() {
         {/* Left Column - AI Signal & History */}
         <div className="lg:col-span-1 space-y-6">
           <AISignalCard signal={currentSignal} />
+          <AccuracyComparison />
           <PredictionHistory />
         </div>
 
