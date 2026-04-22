@@ -97,4 +97,13 @@ export const settingsApi = {
   }> => {
     return api.get(API_ENDPOINTS.SETTINGS_TRADING_STATUS);
   },
+
+  /**
+   * Toggle auto-claim on/off
+   */
+  toggleAutoClaim: async (
+    enabled: boolean
+  ): Promise<{ message: string; auto_claim: boolean }> => {
+    return api.post(API_ENDPOINTS.SETTINGS_AUTO_CLAIM, { enabled });
+  },
 };

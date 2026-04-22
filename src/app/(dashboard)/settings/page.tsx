@@ -7,6 +7,7 @@ import { RiskConfigPanel } from '@/components/settings/risk-config-panel';
 import { SecuritySettings } from '@/components/settings/security-settings';
 import { PrivateKeySetup } from '@/components/settings/private-key-setup';
 import { TradingToggle } from '@/components/settings/trading-toggle';
+import { AutoClaimToggle } from '@/components/settings/auto-claim-toggle';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Loading } from '@/components/ui/loading';
 import { toast } from '@/context/toast-context';
@@ -115,6 +116,13 @@ export default function SettingsPage() {
 
       {/* Trading Toggle */}
       <TradingToggle onUpdate={handleSecurityUpdate} />
+
+      {/* Auto-Claim Toggle */}
+      <AutoClaimToggle
+        initialEnabled={settings?.auto_claim ?? true}
+        hasPrivateKey={settings?.hasPrivateKey || false}
+        onUpdate={handleSecurityUpdate}
+      />
 
       {/* Risk Configuration */}
       <RiskConfigPanel

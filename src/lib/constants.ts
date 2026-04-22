@@ -42,6 +42,7 @@ export const API_ENDPOINTS = {
   SETTINGS_PRIVATE_KEY_CHECK: '/api/settings/private-key/check',
   SETTINGS_TRADING_TOGGLE: '/api/settings/trading/toggle',
   SETTINGS_TRADING_STATUS: '/api/settings/trading/status',
+  SETTINGS_AUTO_CLAIM: '/api/settings/auto-claim',
 
   // Predictions
   PREDICTIONS_CURRENT: '/api/predictions/current',
