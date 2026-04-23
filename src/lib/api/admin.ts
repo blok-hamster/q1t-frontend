@@ -1,5 +1,5 @@
 import { api } from './client';
-import { API_ENDPOINTS } from '@/lib/constants';
+import { API_ENDPOINTS, API_BASE_URL } from '@/lib/constants';
 import type {
   PlatformStats,
   AdminUser,
@@ -188,5 +188,34 @@ export const adminApi = {
       data: response.predictions,
       pagination: response.pagination,
     };
+  },
+
+  exportPredictions: async (): Promise<void> => {
+    const token = typeof window !== 'undefined'
+      ? localStorage.getItem('token')
+      : null;
+
+    const response = await fetch(
+      `${API_BASE_URL}${API_ENDPOINTS.ADMIN_PREDICTIONS_EXPORT}`,
+      {
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to export predictions');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `predictions_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   },
 };

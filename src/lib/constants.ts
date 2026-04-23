@@ -68,6 +68,7 @@ export const API_ENDPOINTS = {
   ADMIN_USER_REACTIVATE: (userId: string) => `/api/admin/users/${userId}/reactivate`,
   ADMIN_INVITES_CREATE: '/api/admin/invites/create',
   ADMIN_PREDICTIONS: '/api/admin/predictions',
+  ADMIN_PREDICTIONS_EXPORT: '/api/admin/predictions/export',
 } as const;
 
 /**

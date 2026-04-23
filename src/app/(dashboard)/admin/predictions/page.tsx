@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Clock,
   Target,
+  Download,
 } from 'lucide-react';
 
 type FilterOutcome = 'all' | 'WIN' | 'LOSS' | 'PENDING';
@@ -24,6 +25,7 @@ type FilterOutcome = 'all' | 'WIN' | 'LOSS' | 'PENDING';
 export default function PredictionsMonitorPage() {
   const [predictions, setPredictions] = useState<PredictionRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [filterOutcome, setFilterOutcome] = useState<FilterOutcome>('all');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
@@ -67,6 +69,18 @@ export default function PredictionsMonitorPage() {
     }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await adminApi.exportPredictions();
+      toast.success('Predictions exported successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to export predictions');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const winCount = predictions.filter((p) => p.outcome === 'WIN').length;
   const lossCount = predictions.filter((p) => p.outcome === 'LOSS').length;
   const winRate =
@@ -87,18 +101,29 @@ export default function PredictionsMonitorPage() {
           </p>
         </div>
 
-        {/* Stats */}
-        <div className="flex gap-4 text-center">
-          <div className="px-4 py-2 bg-bg-tertiary rounded-lg">
-            <p className="text-xs text-text-tertiary mb-1">Win Rate</p>
-            <p className="text-lg font-bold font-mono text-positive">{winRate}%</p>
+        {/* Stats & Export */}
+        <div className="flex items-center gap-4">
+          <div className="flex gap-4 text-center">
+            <div className="px-4 py-2 bg-bg-tertiary rounded-lg">
+              <p className="text-xs text-text-tertiary mb-1">Win Rate</p>
+              <p className="text-lg font-bold font-mono text-positive">{winRate}%</p>
+            </div>
+            <div className="px-4 py-2 bg-bg-tertiary rounded-lg">
+              <p className="text-xs text-text-tertiary mb-1">Total</p>
+              <p className="text-lg font-bold font-mono text-text-primary">
+                {pagination.total}
+              </p>
+            </div>
           </div>
-          <div className="px-4 py-2 bg-bg-tertiary rounded-lg">
-            <p className="text-xs text-text-tertiary mb-1">Total</p>
-            <p className="text-lg font-bold font-mono text-text-primary">
-              {pagination.total}
-            </p>
-          </div>
+          <Button
+            variant="outlined"
+            size="sm"
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {exporting ? 'Exporting...' : 'Export CSV'}
+          </Button>
         </div>
       </div>
 
