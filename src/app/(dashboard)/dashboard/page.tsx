@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const { socket } = useSocket();
   const [currentSignal, setCurrentSignal] = useState<AISignal | null>(null);
   const [currentPrice, setCurrentPrice] = useState(69420);
-  const [price24hChange, setPrice24hChange] = useState(2.5);
+  const [price24hChange, setPrice24hChange] = useState<number | undefined>(undefined);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [selectedTimeframe, setSelectedTimeframe] = useState<ChartTimeframe>('5m');
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
@@ -96,6 +96,38 @@ export default function DashboardPage() {
     fetchInitialData();
   }, []);
 
+  const parseCandleTimestamp = (value: Candle['timestamp']) => {
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric) && numeric > 0) {
+      return numeric;
+    }
+
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  const compute24hChange = (data: Candle[]) => {
+    if (data.length === 0) return undefined;
+
+    const latest = data[data.length - 1];
+    const latestTs = parseCandleTimestamp(latest.timestamp);
+    if (!latestTs || latest.close === 0) return undefined;
+
+    const cutoff = latestTs - 24 * 60 * 60 * 1000;
+    let past: Candle | null = null;
+
+    for (let i = data.length - 1; i >= 0; i -= 1) {
+      const ts = parseCandleTimestamp(data[i].timestamp);
+      if (ts && ts <= cutoff) {
+        past = data[i];
+        break;
+      }
+    }
+
+    if (!past || past.close === 0) return undefined;
+    return ((latest.close - past.close) / past.close) * 100;
+  };
+
   // Setup WebSocket listeners
   useEffect(() => {
     if (!socket) {
@@ -135,19 +167,30 @@ export default function DashboardPage() {
       };
 
       setCandles((prev) => {
+        const maxCandles = 2000;
+        let updated: Candle[] = [];
+
         if (candle.is_closed) {
           // Add completed candle
-          return [...prev, newCandle].slice(-100); // Keep last 100 candles
+          updated = [...prev, newCandle];
         } else {
           // Update live candle (last one)
-          const updated = [...prev];
+          updated = [...prev];
           if (updated.length > 0) {
             updated[updated.length - 1] = newCandle;
           } else {
             updated.push(newCandle);
           }
-          return updated;
         }
+
+        if (updated.length > maxCandles) {
+          updated = updated.slice(-maxCandles);
+        }
+
+        const change = compute24hChange(updated);
+        setPrice24hChange(change);
+
+        return updated;
       });
     });
 

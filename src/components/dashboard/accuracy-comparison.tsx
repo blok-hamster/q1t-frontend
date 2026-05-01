@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
-import { Brain, Activity, Zap, ShieldAlert } from 'lucide-react';
+import { Brain, Zap, ShieldAlert } from 'lucide-react';
 import { predictionApi } from '@/lib/api';
 import type { AccuracyStats } from '@/types/prediction';
 
@@ -52,7 +52,7 @@ export function AccuracyComparison({ className }: AccuracyComparisonProps) {
 
   const rows = [
     {
-      label: 'AI Model',
+      label: 'All AI Signals',
       icon: Brain,
       correct: stats.ai.correct,
       total: stats.ai.total,
@@ -61,29 +61,20 @@ export function AccuracyComparison({ className }: AccuracyComparisonProps) {
       bgColor: 'bg-accent-primary/10',
     },
     {
-      label: 'Technicals',
-      icon: Activity,
-      correct: stats.technicals.correct,
-      total: stats.technicals.total,
-      winRate: stats.technicals.winRate,
-      color: 'text-positive',
-      bgColor: 'bg-positive/10',
-    },
-    {
-      label: 'Combined',
+      label: 'Filtered Trades',
       icon: Zap,
       correct: stats.combined.correct,
       total: stats.combined.total,
       winRate: stats.combined.winRate,
-      color: 'text-warning',
-      bgColor: 'bg-warning/10',
+      color: 'text-positive',
+      bgColor: 'bg-positive/10',
     },
   ];
 
   return (
     <Card className={className}>
       <CardHeader
-        title="Accuracy Comparison"
+        title="Filtered Performance"
         action={
           stats.combined.total > 0 && (
             <Badge variant={parseFloat(stats.combined.winRate) >= 50 ? 'success' : 'error'} size="sm">
