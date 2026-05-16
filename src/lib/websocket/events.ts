@@ -6,6 +6,7 @@ import type {
   AISignal,
   ExecutionUpdate,
   ChartUpdate,
+  MidMarketState,
   SocketEventHandlers,
 } from '@/types/websocket';
 
@@ -53,6 +54,13 @@ export function setupSocketListeners(
     });
   }
 
+  // Mid-market updates
+  if (handlers.onMidMarketUpdate) {
+    socket.on(WS_EVENTS.MID_MARKET_UPDATE, (state: MidMarketState) => {
+      handlers.onMidMarketUpdate?.(state);
+    });
+  }
+
   // Connection handlers
   if (handlers.onConnect) {
     socket.on(WS_EVENTS.CONNECT, handlers.onConnect);
@@ -86,6 +94,10 @@ export function removeSocketListeners(
 
   if (handlers.onChartUpdate) {
     socket.off(WS_EVENTS.CHART_UPDATE);
+  }
+
+  if (handlers.onMidMarketUpdate) {
+    socket.off(WS_EVENTS.MID_MARKET_UPDATE);
   }
 
   if (handlers.onConnect) {

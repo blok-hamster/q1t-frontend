@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
@@ -22,6 +22,8 @@ import {
   Users,
   Send,
   Target,
+  ChevronDown,
+  Layers,
 } from 'lucide-react';
 
 export function Navigation() {
@@ -30,6 +32,18 @@ export function Navigation() {
   const { connected } = useSocket();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [strategiesOpen, setStrategiesOpen] = useState(false);
+  const strategiesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (strategiesRef.current && !strategiesRef.current.contains(e.target as Node)) {
+        setStrategiesOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const navItems = [
     {
@@ -53,6 +67,21 @@ export function Navigation() {
       icon: Settings,
     },
   ];
+
+  const strategyItems = [
+    {
+      label: 'Predictions',
+      href: ROUTES.STRATEGIES_PREDICTIONS,
+      icon: Target,
+    },
+    {
+      label: 'Mid-Market',
+      href: ROUTES.STRATEGIES_MID_MARKET,
+      icon: TrendingUp,
+    },
+  ];
+
+  const isStrategyActive = strategyItems.some(s => pathname === s.href);
 
   // Admin navigation items
   const adminNavItems = user?.isAdmin
@@ -80,7 +109,6 @@ export function Navigation() {
       ]
     : [];
 
-  const allNavItems = [...navItems, ...adminNavItems];
 
   return (
     <>
@@ -103,7 +131,77 @@ export function Navigation() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-1">
-              {allNavItems.map((item) => (
+              {/* Dashboard */}
+              <Link href={ROUTES.DASHBOARD}>
+                <button
+                  className={cn(
+                    'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                    pathname === ROUTES.DASHBOARD
+                      ? 'bg-accent-muted text-accent-primary'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
+                  )}
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  Dashboard
+                </button>
+              </Link>
+
+              {/* Strategies Dropdown */}
+              <div className="relative" ref={strategiesRef}>
+                <button
+                  onClick={() => setStrategiesOpen(!strategiesOpen)}
+                  className={cn(
+                    'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                    isStrategyActive
+                      ? 'bg-accent-muted text-accent-primary'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
+                  )}
+                >
+                  <Layers className="h-4 w-4" />
+                  Strategies
+                  <ChevronDown className={cn('h-3 w-3 transition-transform', strategiesOpen && 'rotate-180')} />
+                </button>
+
+                {strategiesOpen && (
+                  <div className="absolute left-0 mt-1 w-48 bg-bg-secondary border border-border rounded-md shadow-lg py-1 z-50">
+                    {strategyItems.map((item) => (
+                      <Link key={item.href} href={item.href} onClick={() => setStrategiesOpen(false)}>
+                        <button
+                          className={cn(
+                            'w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors',
+                            pathname === item.href
+                              ? 'text-accent-primary bg-accent-muted/50'
+                              : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
+                          )}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          {item.label}
+                        </button>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Remaining nav items */}
+              {navItems.slice(1).map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <button
+                    className={cn(
+                      'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                      pathname === item.href
+                        ? 'bg-accent-muted text-accent-primary'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                </Link>
+              ))}
+
+              {/* Admin items */}
+              {adminNavItems.map((item) => (
                 <Link key={item.href} href={item.href}>
                   <button
                     className={cn(
@@ -189,7 +287,52 @@ export function Navigation() {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-border">
             <div className="px-4 py-4 space-y-1">
-              {allNavItems.map((item) => (
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <button
+                    className={cn(
+                      'w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors',
+                      pathname === item.href
+                        ? 'bg-accent-muted text-accent-primary'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
+                    )}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.label}
+                  </button>
+                </Link>
+              ))}
+
+              {/* Strategies section */}
+              <div className="pt-2 border-t border-border/50 mt-2">
+                <p className="px-4 py-1 text-[10px] text-text-tertiary uppercase font-bold">Strategies</p>
+                {strategyItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <button
+                      className={cn(
+                        'w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors',
+                        pathname === item.href
+                          ? 'bg-accent-muted text-accent-primary'
+                          : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
+                      )}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      {item.label}
+                    </button>
+                  </Link>
+                ))}
+              </div>
+
+              {/* Admin items */}
+              {adminNavItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}

@@ -4,6 +4,10 @@ import type {
   SettingsResponse,
   RiskConfig,
   RiskConfigUpdateResponse,
+  MidMarketConfig,
+  MidMarketConfigUpdateResponse,
+  StrategySelection,
+  MarketConfig,
 } from '@/types/api';
 
 /**
@@ -105,5 +109,72 @@ export const settingsApi = {
     enabled: boolean
   ): Promise<{ message: string; auto_claim: boolean }> => {
     return api.post(API_ENDPOINTS.SETTINGS_AUTO_CLAIM, { enabled });
+  },
+
+  /**
+   * Get mid-market momentum configuration
+   */
+  getMidMarketConfig: async (): Promise<{ midMarketConfig: MidMarketConfig }> => {
+    return api.get(API_ENDPOINTS.SETTINGS_MID_MARKET_CONFIG);
+  },
+
+  /**
+   * Update mid-market momentum configuration
+   */
+  updateMidMarketConfig: async (
+    config: Partial<MidMarketConfig>
+  ): Promise<MidMarketConfigUpdateResponse> => {
+    return api.post<MidMarketConfigUpdateResponse>(
+      API_ENDPOINTS.SETTINGS_MID_MARKET_CONFIG,
+      config
+    );
+  },
+
+  /**
+   * Get strategy selection
+   */
+  getStrategySelection: async (): Promise<{
+    strategySelection: StrategySelection;
+    supportedMarkets: string[];
+  }> => {
+    return api.get(API_ENDPOINTS.SETTINGS_STRATEGY);
+  },
+
+  /**
+   * Update strategy selection
+   */
+  updateStrategySelection: async (
+    strategy: Partial<StrategySelection>
+  ): Promise<{ message: string; strategySelection: StrategySelection }> => {
+    return api.put(API_ENDPOINTS.SETTINGS_STRATEGY, strategy);
+  },
+
+  /**
+   * Get all market configs
+   */
+  getMarketConfigs: async (): Promise<{
+    marketConfigs: MarketConfig[];
+    supportedMarkets: string[];
+  }> => {
+    return api.get(API_ENDPOINTS.SETTINGS_MARKETS);
+  },
+
+  /**
+   * Get single market config
+   */
+  getMarketConfig: async (
+    marketType: string
+  ): Promise<{ marketConfig: MarketConfig | null; market_type?: string }> => {
+    return api.get(API_ENDPOINTS.SETTINGS_MARKET(marketType));
+  },
+
+  /**
+   * Update single market config
+   */
+  updateMarketConfig: async (
+    marketType: string,
+    config: Partial<MarketConfig>
+  ): Promise<{ message: string; marketConfig: MarketConfig }> => {
+    return api.put(API_ENDPOINTS.SETTINGS_MARKET(marketType), config);
   },
 };

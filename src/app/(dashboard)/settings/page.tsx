@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { settingsApi } from '@/lib/api';
 import { RiskConfigPanel } from '@/components/settings/risk-config-panel';
+import { MidMarketConfigPanel } from '@/components/settings/mid-market-config-panel';
+import { StrategySelectionPanel } from '@/components/settings/strategy-selection-panel';
 import { SecuritySettings } from '@/components/settings/security-settings';
 import { PrivateKeySetup } from '@/components/settings/private-key-setup';
 import { TradingToggle } from '@/components/settings/trading-toggle';
@@ -122,6 +124,31 @@ export default function SettingsPage() {
         initialEnabled={settings?.auto_claim ?? true}
         hasPrivateKey={settings?.hasPrivateKey || false}
         onUpdate={handleSecurityUpdate}
+      />
+
+      {/* Strategy Selection */}
+      <StrategySelectionPanel
+        initialStrategy={settings?.strategySelection || { active_strategy: 'both', mid_market_markets: ['btc-5m'] }}
+        marketConfigs={settings?.marketConfigs || []}
+        onUpdate={(newStrategy) => setSettings((prev: any) => ({ ...prev, strategySelection: newStrategy }))}
+      />
+
+      {/* Mid-Market Momentum Strategy (Legacy BTC-5m Config) */}
+      <MidMarketConfigPanel
+        initialConfig={settings?.midMarketConfig || {
+          enabled: false,
+          entry_share_price: 0.80,
+          min_price_distance: 25.0,
+          max_entry_price: 0.85,
+          stop_loss_price: 0.40,
+          num_shares: 20,
+          max_daily_trades: 200,
+          max_concurrent: 1,
+          cooldown_after_stop_seconds: 300,
+          watch_start_seconds: 120,
+          watch_end_seconds: 210,
+        }}
+        onSave={(newConfig) => setSettings((prev: any) => ({ ...prev, midMarketConfig: newConfig }))}
       />
 
       {/* Risk Configuration */}

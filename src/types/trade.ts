@@ -4,6 +4,11 @@
 export type TradeDirection = 'UP' | 'DOWN';
 
 /**
+ * Trade strategy
+ */
+export type TradeStrategy = 'ai_prediction' | 'mid_market';
+
+/**
  * Trade status
  */
 export type TradeStatus =
@@ -23,9 +28,16 @@ export interface Trade {
   market_slug: string;
   direction: TradeDirection;
   size_usd: number;
+  strategy: TradeStrategy;
   status: TradeStatus;
   execution_price: number | null;
   pnl: number | null;
+  num_shares: number | null;
+  entry_share_price: number | null;
+  exit_share_price: number | null;
+  cost_basis: number | null;
+  proceeds: number | null;
+  stop_loss_triggered: boolean;
   resolved_at: string | null;
   dispatchedAt: string | null;
   rejectedAt: string | null;
@@ -59,6 +71,7 @@ export interface TradeStats {
 export interface TradeFilters {
   status?: TradeStatus | 'all';
   direction?: TradeDirection | 'all';
+  strategy?: TradeStrategy | 'all';
   dateFrom?: Date;
   dateTo?: Date;
   search?: string;

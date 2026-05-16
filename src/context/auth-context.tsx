@@ -7,6 +7,7 @@ import {
   useEffect,
   ReactNode,
   useCallback,
+  useMemo,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi, settingsApi, tokenUtils } from '@/lib/api';
@@ -134,22 +135,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /**
    * Refresh user data
    */
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     if (token) {
       await fetchUser();
     }
-  };
+  }, [token, fetchUser]);
 
-  const value: AuthContextType = {
+  const value = useMemo(() => ({
+    isAuthenticated: !!token && !!user,
     user,
     token,
     loading,
-    isAuthenticated: !!token && !!user,
     login,
     register,
     logout,
     refreshUser,
-  };
+  }), [token, user, loading, login, register, logout, refreshUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

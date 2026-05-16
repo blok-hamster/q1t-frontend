@@ -8,7 +8,7 @@ import { MetricCard } from '@/components/dashboard/metric-card';
 import { TradeRow } from '@/components/trades/trade-row';
 import { Loading } from '@/components/ui/loading';
 import { Badge } from '@/components/ui/badge';
-import type { Trade, TradeStatus, TradeDirection } from '@/types/trade';
+import type { Trade, TradeStatus, TradeDirection, TradeStrategy } from '@/types/trade';
 import type { ExecutionUpdate } from '@/types/websocket';
 import {
   BarChart3,
@@ -26,6 +26,7 @@ export default function TradesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TradeStatus | 'all'>('all');
   const [directionFilter, setDirectionFilter] = useState<TradeDirection | 'all'>('all');
+  const [strategyFilter, setStrategyFilter] = useState<TradeStrategy | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -101,6 +102,11 @@ export default function TradesPage() {
         return false;
       }
 
+      // Strategy filter
+      if (strategyFilter !== 'all' && (trade.strategy || 'ai_prediction') !== strategyFilter) {
+        return false;
+      }
+
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -112,7 +118,7 @@ export default function TradesPage() {
 
       return true;
     });
-  }, [trades, statusFilter, directionFilter, searchQuery]);
+  }, [trades, statusFilter, directionFilter, strategyFilter, searchQuery]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTrades.length / itemsPerPage);
@@ -217,6 +223,26 @@ export default function TradesPage() {
                     }`}
                   >
                     {direction === 'all' ? 'All' : direction}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Strategy filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-tertiary">Strategy:</span>
+              <div className="flex gap-1">
+                {(['all', 'ai_prediction', 'mid_market'] as const).map((strategy) => (
+                  <button
+                    key={strategy}
+                    onClick={() => setStrategyFilter(strategy)}
+                    className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                      strategyFilter === strategy
+                        ? 'bg-accent-primary text-bg-primary'
+                        : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    {strategy === 'all' ? 'All' : strategy === 'ai_prediction' ? 'AI' : 'Mid-Market'}
                   </button>
                 ))}
               </div>

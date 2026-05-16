@@ -77,6 +77,40 @@ export interface SettingsResponse {
   email: string;
   twoFactorEnabled: boolean;
   riskConfig: RiskConfig;
+  midMarketConfig: MidMarketConfig;
+  strategySelection: StrategySelection;
+  marketConfigs: MarketConfig[];
+  isActive: boolean;
+  hasPrivateKey: boolean;
+  wallet_address: string | null;
+  wallet_type: 'eoa' | 'proxy';
+  proxy_wallet_address: string | null;
+  polymarket_funding_address: string | null;
+  requires_pol: boolean;
+  isAdmin: boolean;
+  accountStatus: 'active' | 'suspended' | 'pending';
+  auto_claim: boolean;
+  vault_uuid: string | null;
+}
+
+export interface StrategySelection {
+  active_strategy: 'prediction' | 'mid_market' | 'both' | 'none';
+  mid_market_markets: string[];
+}
+
+export interface MarketConfig {
+  market_type: string;
+  enabled: boolean;
+  entry_share_price: number;
+  min_price_distance: number;
+  max_entry_price: number;
+  stop_loss_price: number;
+  num_shares: number;
+  max_daily_trades: number;
+  max_concurrent: number;
+  cooldown_after_stop_seconds: number;
+  watch_start_seconds: number;
+  watch_end_seconds: number;
 }
 
 export interface RiskConfig {
@@ -88,6 +122,25 @@ export interface RiskConfig {
 export interface RiskConfigUpdateResponse {
   message: string;
   riskConfig: RiskConfig;
+}
+
+export interface MidMarketConfig {
+  enabled: boolean;
+  entry_share_price: number;
+  min_price_distance: number;
+  max_entry_price: number;
+  stop_loss_price: number;
+  num_shares: number;
+  max_daily_trades: number;
+  max_concurrent: number;
+  cooldown_after_stop_seconds: number;
+  watch_start_seconds: number;
+  watch_end_seconds: number;
+}
+
+export interface MidMarketConfigUpdateResponse {
+  message: string;
+  midMarketConfig: MidMarketConfig;
 }
 
 /**

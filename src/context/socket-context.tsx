@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   ReactNode,
 } from 'react';
 import type { Socket } from 'socket.io-client';
@@ -19,6 +20,7 @@ interface SocketContextType {
   connected: boolean;
   reconnecting: boolean;
   setupListeners: (handlers: SocketEventHandlers) => void;
+  emit: (event: string, data: any) => void;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -50,23 +52,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     // Connection state handlers
     newSocket.on('connect', () => {
-      console.log('✅ Socket connected');
       setConnected(true);
       setReconnecting(false);
     });
 
     newSocket.on('disconnect', () => {
-      console.log('❌ Socket disconnected');
       setConnected(false);
     });
 
     newSocket.on('reconnect_attempt', () => {
-      console.log('🔄 Reconnecting...');
       setReconnecting(true);
     });
 
     newSocket.on('reconnect', () => {
-      console.log('✅ Reconnected');
       setConnected(true);
       setReconnecting(false);
     });
@@ -97,12 +95,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
   }, [socket]);
 
-  const value: SocketContextType = {
+  const emit = useCallback((event: string, data: any) => {
+    if (socket && connected) {
+      socket.emit(event, data);
+    }
+  }, [socket, connected]);
+
+  const value = useMemo(() => ({
     socket,
     connected,
     reconnecting,
     setupListeners,
-  };
+    emit,
+  }), [socket, connected, reconnecting, setupListeners, emit]);
 
   return (
     <SocketContext.Provider value={value}>{children}</SocketContext.Provider>

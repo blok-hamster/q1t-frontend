@@ -18,6 +18,7 @@ export function TradeRow({ trade, variant = 'desktop', onClick }: TradeRowProps)
   const isOpen = trade.status === 'OPEN';
   const isPending = trade.status === 'PENDING';
   const isRejected = trade.status === 'REJECTED';
+  const isMidMarket = trade.strategy === 'mid_market';
 
   const getStatusBadgeVariant = () => {
     if (isWin) return 'success';
@@ -82,20 +83,31 @@ export function TradeRow({ trade, variant = 'desktop', onClick }: TradeRowProps)
           </Badge>
         </div>
 
+        {/* Strategy badge */}
+        {isMidMarket && (
+          <div className="mb-2">
+            <Badge variant="info" size="sm">Mid-Market</Badge>
+          </div>
+        )}
+
         {/* Details */}
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div>
             <p className="text-text-tertiary mb-1">Size</p>
             <p className="font-mono text-text-primary">
-              {formatCurrency(trade.size_usd)}
+              {isMidMarket && trade.num_shares
+                ? `${trade.num_shares} shares`
+                : formatCurrency(trade.size_usd)}
             </p>
           </div>
           <div>
             <p className="text-text-tertiary mb-1">Entry Price</p>
             <p className="font-mono text-text-primary">
-              {trade.execution_price !== null
-                ? `$${trade.execution_price.toFixed(2)}`
-                : '-'}
+              {isMidMarket && trade.entry_share_price !== null
+                ? `$${trade.entry_share_price.toFixed(2)}/share`
+                : trade.execution_price !== null
+                  ? `$${trade.execution_price.toFixed(2)}`
+                  : '-'}
             </p>
           </div>
         </div>
@@ -152,24 +164,33 @@ export function TradeRow({ trade, variant = 'desktop', onClick }: TradeRowProps)
       {/* Size */}
       <td className="px-4 py-3">
         <p className="text-sm font-mono text-text-primary">
-          {formatCurrency(trade.size_usd)}
+          {isMidMarket && trade.num_shares
+            ? `${trade.num_shares} shares`
+            : formatCurrency(trade.size_usd)}
         </p>
       </td>
 
       {/* Entry Price */}
       <td className="px-4 py-3">
         <p className="text-sm font-mono text-text-primary">
-          {trade.execution_price !== null
-            ? `$${trade.execution_price.toFixed(2)}`
-            : '-'}
+          {isMidMarket && trade.entry_share_price !== null
+            ? `$${trade.entry_share_price.toFixed(2)}/share`
+            : trade.execution_price !== null
+              ? `$${trade.execution_price.toFixed(2)}`
+              : '-'}
         </p>
       </td>
 
       {/* Status */}
       <td className="px-4 py-3">
-        <Badge variant={getStatusBadgeVariant()} size="sm">
-          {getStatusLabel()}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge variant={getStatusBadgeVariant()} size="sm">
+            {getStatusLabel()}
+          </Badge>
+          {isMidMarket && (
+            <Badge variant="neutral" size="sm">MM</Badge>
+          )}
+        </div>
       </td>
 
       {/* P&L */}

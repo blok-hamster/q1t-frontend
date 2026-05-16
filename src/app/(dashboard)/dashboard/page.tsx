@@ -5,13 +5,12 @@ import Link from 'next/link';
 import { useSocket } from '@/context/socket-context';
 import { executionApi, predictionApi, dashboardApi } from '@/lib/api';
 import { AISignalCard } from '@/components/dashboard/ai-signal-card';
+import { ActiveMarkets } from '@/components/dashboard/active-markets';
 import { PriceTicker } from '@/components/dashboard/price-ticker';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { ConnectionStatus } from '@/components/dashboard/connection-status';
 import { CandlestickChart } from '@/components/charts/candlestick-chart';
 import { VolumeBars } from '@/components/charts/volume-bars';
-import { PredictionHistory } from '@/components/dashboard/prediction-history';
-import { AccuracyComparison } from '@/components/dashboard/accuracy-comparison';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/lib/constants';
@@ -51,9 +50,6 @@ export default function DashboardPage() {
         const data = await predictionApi.getCurrent();
         if (data?.prediction) {
           setCurrentSignal(data.prediction);
-          console.log('✅ Loaded current prediction from API:', data.prediction);
-        } else {
-          console.log('⏳ No active prediction');
         }
       } catch (error) {
         console.error('Failed to fetch current prediction:', error);
@@ -91,6 +87,7 @@ export default function DashboardPage() {
       } finally {
         setLoadingTrades(false);
       }
+
     };
 
     fetchInitialData();
@@ -139,15 +136,7 @@ export default function DashboardPage() {
 
     // AI Signal updates
     socket.on('ai_signal_update', (signal: AISignal) => {
-      console.log('📊 New AI Signal received:', signal);
-      console.log('Signal details:', {
-        direction: signal.direction,
-        confidence: signal.confidence,
-        market_slug: signal.market_slug,
-        market_end_time: signal.market_end_time,
-      });
       setCurrentSignal(signal);
-      console.log('✅ Signal state updated');
     });
 
     // Chart updates (price)
@@ -187,10 +176,14 @@ export default function DashboardPage() {
           updated = updated.slice(-maxCandles);
         }
 
-        const change = compute24hChange(updated);
-        setPrice24hChange(change);
-
         return updated;
+      });
+
+      // Calculate 24h change separately to avoid render side-effects inside state updates
+      setCandles((current) => {
+        const change = compute24hChange(current);
+        setPrice24hChange(change);
+        return current;
       });
     });
 
@@ -251,11 +244,10 @@ export default function DashboardPage() {
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - AI Signal & History */}
+        {/* Left Column - AI Signal & Markets */}
         <div className="lg:col-span-1 space-y-6">
           <AISignalCard signal={currentSignal} />
-          <AccuracyComparison />
-          <PredictionHistory />
+          <ActiveMarkets />
         </div>
 
         {/* Right Columns - Chart & Metrics */}
@@ -368,11 +360,10 @@ export default function DashboardPage() {
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            trade.direction === 'UP'
+                          className={`w-8 h-8 rounded-full flex items-center justify-center ${trade.direction === 'UP'
                               ? 'bg-positive/20'
                               : 'bg-negative/20'
-                          }`}
+                            }`}
                         >
                           {trade.direction === 'UP' ? (
                             <ArrowUp className="h-4 w-4 text-positive" />
@@ -402,13 +393,12 @@ export default function DashboardPage() {
                         ) : (
                           <>
                             <p
-                              className={`text-sm font-mono font-semibold ${
-                                isWin
+                              className={`text-sm font-mono font-semibold ${isWin
                                   ? 'text-positive'
                                   : isLoss
-                                  ? 'text-negative'
-                                  : 'text-text-secondary'
-                              }`}
+                                    ? 'text-negative'
+                                    : 'text-text-secondary'
+                                }`}
                             >
                               {pnl > 0 ? '+' : ''}
                               {formatCurrency(pnl)}
