@@ -11,6 +11,14 @@ import { toast } from '@/context/toast-context';
 import { Settings, Save, RotateCcw } from 'lucide-react';
 import type { MarketConfig } from '@/types/api';
 
+function fmtTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m === 0) return `${s}s`;
+  if (s === 0) return `${m}m`;
+  return `${m}m ${s}s`;
+}
+
 const MARKET_LABELS: Record<string, string> = {
   'btc-5m': 'BTC 5-Minute',
   'btc-15m': 'BTC 15-Minute',
@@ -268,7 +276,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
                 Cooldown After Stop-Loss
               </label>
               <span className="text-sm font-mono font-semibold text-accent-primary">
-                {config.cooldown_after_stop_seconds}s
+                {fmtTime(config.cooldown_after_stop_seconds)}
               </span>
             </div>
             <Slider
@@ -277,7 +285,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
               step={30}
               value={config.cooldown_after_stop_seconds}
               onChange={(v) => update('cooldown_after_stop_seconds', v)}
-              formatValue={(v) => `${v}s`}
+              formatValue={(v) => fmtTime(v)}
             />
           </div>
         </div>
@@ -358,7 +366,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
                 Start Watching At
               </label>
               <span className="text-sm font-mono font-semibold text-accent-primary">
-                T+{config.watch_start_seconds}s
+                T+{fmtTime(config.watch_start_seconds)}
               </span>
             </div>
             <Slider
@@ -367,7 +375,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
               step={10}
               value={config.watch_start_seconds}
               onChange={(v) => update('watch_start_seconds', v)}
-              formatValue={(v) => `T+${v}s`}
+              formatValue={(v) => `T+${fmtTime(v)}`}
             />
           </div>
 
@@ -377,7 +385,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
                 Stop Watching At
               </label>
               <span className="text-sm font-mono font-semibold text-accent-primary">
-                T+{config.watch_end_seconds}s
+                T+{fmtTime(config.watch_end_seconds)}
               </span>
             </div>
             <Slider
@@ -386,7 +394,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
               step={10}
               value={config.watch_end_seconds}
               onChange={(v) => update('watch_end_seconds', v)}
-              formatValue={(v) => `T+${v}s`}
+              formatValue={(v) => `T+${fmtTime(v)}`}
             />
           </div>
         </div>
