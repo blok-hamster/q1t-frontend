@@ -30,6 +30,7 @@ interface MarketState {
   dailyWins: number;
   dailyLosses: number;
   dailyPnl: number;
+  mqsScore: number;
 }
 
 function emptyState(): MarketState {
@@ -45,10 +46,15 @@ function emptyState(): MarketState {
     dailyWins: 0,
     dailyLosses: 0,
     dailyPnl: 0,
+    mqsScore: 0,
   };
 }
 
-export const ActiveMarkets = memo(function ActiveMarkets() {
+interface ActiveMarketsProps {
+  enabledMarkets?: string[];
+}
+
+export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: ActiveMarketsProps) {
   const { socket } = useSocket();
   const [markets, setMarkets] = useState<Record<string, MarketState>>(() => {
     const init: Record<string, MarketState> = {};
@@ -88,6 +94,7 @@ export const ActiveMarkets = memo(function ActiveMarkets() {
         if ((data as any).daily_wins != null) updated.dailyWins = (data as any).daily_wins;
         if ((data as any).daily_losses != null) updated.dailyLosses = (data as any).daily_losses;
         if ((data as any).daily_pnl != null) updated.dailyPnl = Math.round((data as any).daily_pnl * 100) / 100;
+        if ((data as any).mqs_score != null) updated.mqsScore = Math.round((data as any).mqs_score * 100) / 100;
 
         return { ...prev, [mt]: updated };
       });
@@ -104,20 +111,25 @@ export const ActiveMarkets = memo(function ActiveMarkets() {
     return () => clearInterval(id);
   }, []);
 
-  const activeMarkets = ALL_MARKETS.filter(m => {
+  // Only show markets the user has enabled (or all if prop not provided)
+  const visibleMarkets = enabledMarkets && enabledMarkets.length > 0
+    ? ALL_MARKETS.filter(m => enabledMarkets.includes(m.id))
+    : ALL_MARKETS;
+
+  const activeMarkets = visibleMarkets.filter(m => {
     const s = markets[m.id];
     return s.lastEvent > 0 && (Date.now() - s.lastEvent < 15000);
   });
 
-  const inactiveMarkets = ALL_MARKETS.filter(m => {
+  const inactiveMarkets = visibleMarkets.filter(m => {
     const s = markets[m.id];
     return s.lastEvent === 0 || (Date.now() - s.lastEvent >= 15000);
   });
 
-  const totalTrades = ALL_MARKETS.reduce((sum, m) => sum + markets[m.id].dailyTrades, 0);
-  const totalWins = ALL_MARKETS.reduce((sum, m) => sum + markets[m.id].dailyWins, 0);
-  const totalLosses = ALL_MARKETS.reduce((sum, m) => sum + markets[m.id].dailyLosses, 0);
-  const totalPnl = Math.round(ALL_MARKETS.reduce((sum, m) => sum + markets[m.id].dailyPnl, 0) * 100) / 100;
+  const totalTrades = visibleMarkets.reduce((sum, m) => sum + markets[m.id].dailyTrades, 0);
+  const totalWins = visibleMarkets.reduce((sum, m) => sum + markets[m.id].dailyWins, 0);
+  const totalLosses = visibleMarkets.reduce((sum, m) => sum + markets[m.id].dailyLosses, 0);
+  const totalPnl = Math.round(visibleMarkets.reduce((sum, m) => sum + markets[m.id].dailyPnl, 0) * 100) / 100;
 
   return (
     <Card>
@@ -128,7 +140,7 @@ export const ActiveMarkets = memo(function ActiveMarkets() {
             <h3 className="text-sm font-semibold text-text-primary">Active Markets</h3>
           </div>
           <Badge variant={activeMarkets.length > 0 ? 'success' : 'neutral'} size="sm">
-            {activeMarkets.length}/{ALL_MARKETS.length}
+            {activeMarkets.length}/{visibleMarkets.length}
           </Badge>
         </div>
       </CardHeader>
@@ -230,6 +242,12 @@ function MarketRow({ market, state }: { market: typeof ALL_MARKETS[0]; state: Ma
         {state.priceDistance != null && (
           <span className={`text-[10px] font-mono tabular-nums ${state.priceDistance >= 25 ? 'text-positive' : 'text-text-tertiary'}`}>
             ${state.priceDistance.toFixed(0)}
+          </span>
+        )}
+
+        {state.mqsScore > 0 && (
+          <span className={`text-[10px] font-mono tabular-nums ${state.mqsScore >= 0.6 ? 'text-positive' : state.mqsScore >= 0.4 ? 'text-warning' : 'text-negative'}`}>
+            {(state.mqsScore * 100).toFixed(0)}%
           </span>
         )}
 

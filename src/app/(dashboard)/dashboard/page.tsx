@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSocket } from '@/context/socket-context';
-import { executionApi, predictionApi, dashboardApi } from '@/lib/api';
+import { executionApi, predictionApi, dashboardApi, settingsApi } from '@/lib/api';
 import { AISignalCard } from '@/components/dashboard/ai-signal-card';
 import { ActiveMarkets } from '@/components/dashboard/active-markets';
 import { PriceTicker } from '@/components/dashboard/price-ticker';
@@ -41,10 +41,20 @@ export default function DashboardPage() {
     winRateChange: 0,
   });
   const [loadingMetrics, setLoadingMetrics] = useState(true);
+  const [enabledMarkets, setEnabledMarkets] = useState<string[]>([]);
 
   // Fetch current prediction and recent trades on mount
   useEffect(() => {
     const fetchInitialData = async () => {
+      // Fetch user's enabled markets
+      try {
+        const settings = await settingsApi.getSettings();
+        const markets = settings?.strategySelection?.mid_market_markets || [];
+        setEnabledMarkets(markets);
+      } catch (error) {
+        console.error('Failed to fetch settings:', error);
+      }
+
       // Fetch current prediction (if any)
       try {
         const data = await predictionApi.getCurrent();
@@ -247,7 +257,7 @@ export default function DashboardPage() {
         {/* Left Column - AI Signal & Markets */}
         <div className="lg:col-span-1 space-y-6">
           <AISignalCard signal={currentSignal} />
-          <ActiveMarkets />
+          <ActiveMarkets enabledMarkets={enabledMarkets} />
         </div>
 
         {/* Right Columns - Chart & Metrics */}

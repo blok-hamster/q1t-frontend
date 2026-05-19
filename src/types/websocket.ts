@@ -47,6 +47,8 @@ export interface MidMarketState {
   daily_losses: number;
   daily_pnl: number;
   in_cooldown: boolean;
+  mqs_score?: number;
+  mqs_veto?: string | null;
 }
 
 /**

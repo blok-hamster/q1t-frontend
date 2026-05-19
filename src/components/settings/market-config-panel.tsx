@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { settingsApi } from '@/lib/api';
 import { toast } from '@/context/toast-context';
-import { Settings, Save, RotateCcw } from 'lucide-react';
+import { Settings, Save, RotateCcw, Shield } from 'lucide-react';
 import type { MarketConfig } from '@/types/api';
 
 function fmtTime(seconds: number): string {
@@ -65,6 +65,8 @@ const DEFAULT_CONFIG: MarketConfig = {
   cooldown_after_stop_seconds: 300,
   watch_start_seconds: 120,
   watch_end_seconds: 210,
+  mqs_enabled: true,
+  mqs_threshold: 0.60,
 };
 
 interface MarketConfigPanelProps {
@@ -281,7 +283,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
             </div>
             <Slider
               min={0}
-              max={600}
+              max={isInterval15m ? 1800 : 600}
               step={30}
               value={config.cooldown_after_stop_seconds}
               onChange={(v) => update('cooldown_after_stop_seconds', v)}
@@ -370,8 +372,8 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
               </span>
             </div>
             <Slider
-              min={30}
-              max={isInterval15m ? 600 : 180}
+              min={10}
+              max={isInterval15m ? 840 : 270}
               step={10}
               value={config.watch_start_seconds}
               onChange={(v) => update('watch_start_seconds', v)}
@@ -389,14 +391,63 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
               </span>
             </div>
             <Slider
-              min={120}
-              max={isInterval15m ? 800 : 270}
+              min={60}
+              max={isInterval15m ? 890 : 290}
               step={10}
               value={config.watch_end_seconds}
               onChange={(v) => update('watch_end_seconds', v)}
               formatValue={(v) => `T+${fmtTime(v)}`}
             />
           </div>
+        </div>
+
+        {/* Momentum Quality Score */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-accent-primary" />
+            <h4 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
+              Entry Filter (MQS)
+            </h4>
+          </div>
+
+          <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
+            <div className="flex-1">
+              <label className="text-sm font-medium text-text-primary block mb-1">
+                Enable MQS Filter
+              </label>
+              <p className="text-xs text-text-tertiary">
+                Only enter when momentum quality score passes threshold
+              </p>
+            </div>
+            <Switch
+              checked={config.mqs_enabled}
+              onChange={(checked) => update('mqs_enabled', checked)}
+            />
+          </div>
+
+          {config.mqs_enabled && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-text-primary">
+                  MQS Threshold
+                </label>
+                <span className="text-sm font-mono font-semibold text-accent-primary">
+                  {(config.mqs_threshold * 100).toFixed(0)}%
+                </span>
+              </div>
+              <Slider
+                min={30}
+                max={90}
+                step={5}
+                value={config.mqs_threshold * 100}
+                onChange={(v) => update('mqs_threshold', v / 100)}
+                formatValue={(v) => `${v}%`}
+              />
+              <p className="text-xs text-text-tertiary">
+                Higher = fewer but higher quality entries. Recommended: 55-70%
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Trade Economics Preview */}

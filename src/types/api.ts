@@ -111,6 +111,8 @@ export interface MarketConfig {
   cooldown_after_stop_seconds: number;
   watch_start_seconds: number;
   watch_end_seconds: number;
+  mqs_enabled: boolean;
+  mqs_threshold: number;
 }
 
 export interface RiskConfig {
@@ -136,6 +138,8 @@ export interface MidMarketConfig {
   cooldown_after_stop_seconds: number;
   watch_start_seconds: number;
   watch_end_seconds: number;
+  mqs_enabled: boolean;
+  mqs_threshold: number;
 }
 
 export interface MidMarketConfigUpdateResponse {
