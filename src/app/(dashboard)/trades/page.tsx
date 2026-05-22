@@ -61,8 +61,19 @@ export default function TradesPage() {
       );
     });
 
+    // Refetch trades when mid-market events happen (new trades created/resolved)
+    const refetchOnEvent = () => {
+      executionApi.getTrades().then(({ trades: fresh }) => setTrades(fresh)).catch(() => {});
+    };
+    socket.on('mid_market_entry', refetchOnEvent);
+    socket.on('mid_market_stop', refetchOnEvent);
+    socket.on('mid_market_resolved', refetchOnEvent);
+
     return () => {
       socket.off('execution_update');
+      socket.off('mid_market_entry', refetchOnEvent);
+      socket.off('mid_market_stop', refetchOnEvent);
+      socket.off('mid_market_resolved', refetchOnEvent);
     };
   }, [socket]);
 

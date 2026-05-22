@@ -132,7 +132,48 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
     };
 
     socket.on('mid_market_update', handler);
-    return () => { socket.off('mid_market_update', handler); };
+
+    // Per-user events (emitted to user room only)
+    const entryHandler = (data: any) => {
+      const mt = data.market_type || 'btc-5m';
+      if (mt !== marketTypeRef.current) return;
+      setPosition({ direction: data.direction, entry_price: data.entry_price, shares: data.num_shares || 0 });
+      if (data.daily_trades != null) setDailyTrades(data.daily_trades);
+      if (data.daily_wins != null) setDailyWins(data.daily_wins);
+      if (data.daily_losses != null) setDailyLosses(data.daily_losses);
+      if (data.daily_pnl != null) setDailyPnl(q2(data.daily_pnl) ?? 0);
+    };
+
+    const stopHandler = (data: any) => {
+      const mt = data.market_type || 'btc-5m';
+      if (mt !== marketTypeRef.current) return;
+      setPosition(null);
+      if (data.daily_trades != null) setDailyTrades(data.daily_trades);
+      if (data.daily_wins != null) setDailyWins(data.daily_wins);
+      if (data.daily_losses != null) setDailyLosses(data.daily_losses);
+      if (data.daily_pnl != null) setDailyPnl(q2(data.daily_pnl) ?? 0);
+    };
+
+    const resolvedHandler = (data: any) => {
+      const mt = data.market_type || 'btc-5m';
+      if (mt !== marketTypeRef.current) return;
+      setPosition(null);
+      if (data.daily_trades != null) setDailyTrades(data.daily_trades);
+      if (data.daily_wins != null) setDailyWins(data.daily_wins);
+      if (data.daily_losses != null) setDailyLosses(data.daily_losses);
+      if (data.daily_pnl != null) setDailyPnl(q2(data.daily_pnl) ?? 0);
+    };
+
+    socket.on('mid_market_entry', entryHandler);
+    socket.on('mid_market_stop', stopHandler);
+    socket.on('mid_market_resolved', resolvedHandler);
+
+    return () => {
+      socket.off('mid_market_update', handler);
+      socket.off('mid_market_entry', entryHandler);
+      socket.off('mid_market_stop', stopHandler);
+      socket.off('mid_market_resolved', resolvedHandler);
+    };
   }, [socket]);
 
   // Liveness check

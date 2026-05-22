@@ -101,7 +101,69 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
     };
 
     socket.on('mid_market_update', handler);
-    return () => { socket.off('mid_market_update', handler); };
+
+    // Per-user events for position/stats tracking
+    const entryHandler = (data: any) => {
+      const mt = data.market_type || 'btc-5m';
+      if (!marketsRef.current[mt]) return;
+      setMarkets(prev => ({
+        ...prev,
+        [mt]: {
+          ...prev[mt],
+          position: { direction: data.direction, entry_price: data.entry_price },
+          dailyTrades: data.daily_trades ?? prev[mt].dailyTrades + 1,
+          dailyWins: data.daily_wins ?? prev[mt].dailyWins,
+          dailyLosses: data.daily_losses ?? prev[mt].dailyLosses,
+          dailyPnl: data.daily_pnl != null ? Math.round(data.daily_pnl * 100) / 100 : prev[mt].dailyPnl,
+          lastEvent: Date.now(),
+        }
+      }));
+    };
+
+    const stopHandler = (data: any) => {
+      const mt = data.market_type || 'btc-5m';
+      if (!marketsRef.current[mt]) return;
+      setMarkets(prev => ({
+        ...prev,
+        [mt]: {
+          ...prev[mt],
+          position: null,
+          dailyTrades: data.daily_trades ?? prev[mt].dailyTrades,
+          dailyWins: data.daily_wins ?? prev[mt].dailyWins,
+          dailyLosses: data.daily_losses ?? prev[mt].dailyLosses + 1,
+          dailyPnl: data.daily_pnl != null ? Math.round(data.daily_pnl * 100) / 100 : prev[mt].dailyPnl,
+          lastEvent: Date.now(),
+        }
+      }));
+    };
+
+    const resolvedHandler = (data: any) => {
+      const mt = data.market_type || 'btc-5m';
+      if (!marketsRef.current[mt]) return;
+      setMarkets(prev => ({
+        ...prev,
+        [mt]: {
+          ...prev[mt],
+          position: null,
+          dailyTrades: data.daily_trades ?? prev[mt].dailyTrades,
+          dailyWins: data.daily_wins ?? prev[mt].dailyWins + (data.outcome === 'WIN' ? 1 : 0),
+          dailyLosses: data.daily_losses ?? prev[mt].dailyLosses,
+          dailyPnl: data.daily_pnl != null ? Math.round(data.daily_pnl * 100) / 100 : prev[mt].dailyPnl,
+          lastEvent: Date.now(),
+        }
+      }));
+    };
+
+    socket.on('mid_market_entry', entryHandler);
+    socket.on('mid_market_stop', stopHandler);
+    socket.on('mid_market_resolved', resolvedHandler);
+
+    return () => {
+      socket.off('mid_market_update', handler);
+      socket.off('mid_market_entry', entryHandler);
+      socket.off('mid_market_stop', stopHandler);
+      socket.off('mid_market_resolved', resolvedHandler);
+    };
   }, [socket]);
 
   // Re-evaluate active/inactive every 5s
