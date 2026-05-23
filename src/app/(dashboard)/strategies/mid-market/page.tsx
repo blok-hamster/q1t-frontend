@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, memo } from 'react';
 import { useSocket } from '@/context/socket-context';
-import { settingsApi } from '@/lib/api';
+import { settingsApi, executionApi } from '@/lib/api';
 import { MidMarketMonitor } from '@/components/dashboard/mid-market-monitor';
 import { MarketConfigPanel } from '@/components/settings/market-config-panel';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
@@ -69,10 +69,22 @@ export default function MidMarketPage() {
     fetchData();
   }, []);
 
-  // Reset stats when switching markets
+  // Reset stats when switching markets and fetch persisted values
   useEffect(() => {
     setStats(null);
     statsRef.current = null;
+    executionApi.getMidMarketStats().then((s) => {
+      const ms = s.per_market?.[selectedMarket];
+      const initial: MarketStats = {
+        daily_trades: ms?.trades || 0,
+        daily_wins: ms?.wins || 0,
+        daily_losses: ms?.losses || 0,
+        daily_pnl: ms?.pnl || 0,
+        in_cooldown: false,
+      };
+      statsRef.current = initial;
+      setStats(initial);
+    }).catch(() => {});
   }, [selectedMarket]);
 
   // Socket listener writes to ref only — no setState calls

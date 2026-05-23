@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useSocket } from '@/context/socket-context';
+import { executionApi } from '@/lib/api';
 import { TrendingUp, TrendingDown, Radio, CircleOff } from 'lucide-react';
 import type { MidMarketState, MidMarketPosition } from '@/types/websocket';
 
@@ -41,7 +42,7 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
   const lastWindowEndTsRef = useRef<number>(0);
   marketTypeRef.current = marketType;
 
-  // Reset on market switch
+  // Reset on market switch and fetch persisted stats
   useEffect(() => {
     lastEventRef.current = 0;
     isLiveRef.current = false;
@@ -58,6 +59,16 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
     setDailyLosses(0);
     setDailyPnl(0);
     setIsLive(false);
+
+    executionApi.getMidMarketStats().then((stats) => {
+      const ms = stats.per_market?.[marketType];
+      if (ms) {
+        setDailyTrades(ms.trades);
+        setDailyWins(ms.wins);
+        setDailyLosses(ms.losses);
+        setDailyPnl(ms.pnl);
+      }
+    }).catch(() => {});
   }, [marketType]);
 
   // Socket listener — updates display state directly, no throttle delay

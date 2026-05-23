@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useSocket } from '@/context/socket-context';
+import { executionApi } from '@/lib/api';
 import { TrendingUp, TrendingDown, Radio, Clock } from 'lucide-react';
 import type { MidMarketState } from '@/types/websocket';
 
@@ -64,6 +65,29 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
 
   const marketsRef = useRef(markets);
   marketsRef.current = markets;
+
+  // Fetch persisted daily stats on mount (per-market)
+  useEffect(() => {
+    executionApi.getMidMarketStats().then((stats) => {
+      if (!stats.per_market) return;
+      setMarkets(prev => {
+        const updated = { ...prev };
+        for (const id of Object.keys(updated)) {
+          const ms = stats.per_market[id];
+          if (ms) {
+            updated[id] = {
+              ...updated[id],
+              dailyTrades: ms.trades,
+              dailyWins: ms.wins,
+              dailyLosses: ms.losses,
+              dailyPnl: ms.pnl,
+            };
+          }
+        }
+        return updated;
+      });
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!socket) return;

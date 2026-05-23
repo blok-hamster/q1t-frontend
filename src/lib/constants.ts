@@ -30,6 +30,7 @@ export const API_ENDPOINTS = {
 
   // Execution
   EXECUTION_LEDGER: '/api/execution/ledger',
+  EXECUTION_MID_MARKET_STATS: '/api/execution/mid-market-stats',
 
   // Market
   MARKET_DETAILS: (slug: string) => `/api/market/${slug}`,
