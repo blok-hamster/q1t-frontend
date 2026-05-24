@@ -9,12 +9,19 @@ export interface MarketStats {
   pnl: number;
 }
 
+export interface PositionInfo {
+  direction: string;
+  entry_price: number;
+  num_shares?: number;
+}
+
 export interface MidMarketDailyStats {
   daily_trades: number;
   daily_wins: number;
   daily_losses: number;
   daily_pnl: number;
   per_market: Record<string, MarketStats>;
+  positions: Record<string, PositionInfo>;
 }
 
 /**

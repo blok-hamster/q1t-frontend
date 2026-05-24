@@ -42,14 +42,14 @@ const MARKET_DEFAULTS: Record<string, { min_price_distance: number; distance_lab
 };
 
 const DISTANCE_RANGES: Record<string, { min: number; max: number; step: number; format: (v: number) => string }> = {
-  'btc-5m': { min: 5, max: 100, step: 5, format: (v) => `$${v}` },
-  'btc-15m': { min: 10, max: 200, step: 10, format: (v) => `$${v}` },
-  'eth-5m': { min: 0.5, max: 20, step: 0.5, format: (v) => `$${v.toFixed(1)}` },
-  'eth-15m': { min: 1, max: 30, step: 1, format: (v) => `$${v}` },
-  'sol-5m': { min: 0.02, max: 1, step: 0.02, format: (v) => `$${v.toFixed(2)}` },
-  'sol-15m': { min: 0.05, max: 2, step: 0.05, format: (v) => `$${v.toFixed(2)}` },
-  'doge-5m': { min: 0.0001, max: 0.002, step: 0.0001, format: (v) => `$${v.toFixed(4)}` },
-  'doge-15m': { min: 0.0002, max: 0.005, step: 0.0001, format: (v) => `$${v.toFixed(4)}` },
+  'btc-5m': { min: 0, max: 100, step: 5, format: (v) => `$${v}` },
+  'btc-15m': { min: 0, max: 200, step: 10, format: (v) => `$${v}` },
+  'eth-5m': { min: 0, max: 20, step: 0.5, format: (v) => `$${v.toFixed(1)}` },
+  'eth-15m': { min: 0, max: 30, step: 1, format: (v) => `$${v}` },
+  'sol-5m': { min: 0, max: 1, step: 0.02, format: (v) => `$${v.toFixed(2)}` },
+  'sol-15m': { min: 0, max: 2, step: 0.05, format: (v) => `$${v.toFixed(2)}` },
+  'doge-5m': { min: 0, max: 0.002, step: 0.0001, format: (v) => `$${v.toFixed(4)}` },
+  'doge-15m': { min: 0, max: 0.005, step: 0.0001, format: (v) => `$${v.toFixed(4)}` },
 };
 
 const DEFAULT_CONFIG: MarketConfig = {
@@ -91,7 +91,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
       setConfig({
         ...DEFAULT_CONFIG,
         market_type: marketType,
-        min_price_distance: defaults?.min_price_distance || 25,
+        min_price_distance: defaults?.min_price_distance ?? 25,
       });
       setHasChanges(false);
     }
@@ -110,7 +110,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
       setConfig({
         ...DEFAULT_CONFIG,
         market_type: marketType,
-        min_price_distance: defaults?.min_price_distance || 25,
+        min_price_distance: defaults?.min_price_distance ?? 25,
       });
     }
     setHasChanges(false);

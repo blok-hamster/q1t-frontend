@@ -66,14 +66,13 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
   const marketsRef = useRef(markets);
   marketsRef.current = markets;
 
-  // Fetch persisted daily stats on mount (per-market)
+  // Fetch persisted daily stats + open positions on mount (per-market)
   useEffect(() => {
     executionApi.getMidMarketStats().then((stats) => {
-      if (!stats.per_market) return;
       setMarkets(prev => {
         const updated = { ...prev };
         for (const id of Object.keys(updated)) {
-          const ms = stats.per_market[id];
+          const ms = stats.per_market?.[id];
           if (ms) {
             updated[id] = {
               ...updated[id],
@@ -81,6 +80,14 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
               dailyWins: ms.wins,
               dailyLosses: ms.losses,
               dailyPnl: ms.pnl,
+            };
+          }
+          const pos = stats.positions?.[id];
+          if (pos) {
+            updated[id] = {
+              ...updated[id],
+              position: { direction: pos.direction, entry_price: pos.entry_price },
+              lastEvent: Date.now(),
             };
           }
         }

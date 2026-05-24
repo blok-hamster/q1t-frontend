@@ -68,6 +68,10 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
         setDailyLosses(ms.losses);
         setDailyPnl(ms.pnl);
       }
+      const pos = stats.positions?.[marketType];
+      if (pos) {
+        setPosition({ direction: pos.direction, entry_price: pos.entry_price, shares: pos.num_shares || 0 });
+      }
     }).catch(() => {});
   }, [marketType]);
 
