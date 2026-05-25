@@ -67,6 +67,14 @@ const DEFAULT_CONFIG: MarketConfig = {
   watch_end_seconds: 210,
   mqs_enabled: true,
   mqs_threshold: 0.60,
+  volatility_gate_enabled: false,
+  min_kronos_spread: 0.0003,
+  fade_enabled: false,
+  fade_vol_ceiling: 0.00020,
+  fade_trigger_price: 0.82,
+  fade_mqs_max: 0.45,
+  fade_num_shares: 50,
+  fade_stop_loss: 0.08,
 };
 
 interface MarketConfigPanelProps {
@@ -77,14 +85,14 @@ interface MarketConfigPanelProps {
 
 export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketConfigPanelProps) {
   const [config, setConfig] = useState<MarketConfig>(
-    initialConfig || { ...DEFAULT_CONFIG, market_type: marketType }
+    { ...DEFAULT_CONFIG, ...initialConfig, market_type: marketType }
   );
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (initialConfig) {
-      setConfig(initialConfig);
+      setConfig({ ...DEFAULT_CONFIG, ...initialConfig });
       setHasChanges(false);
     } else {
       const defaults = MARKET_DEFAULTS[marketType];
@@ -449,6 +457,201 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
             </div>
           )}
         </div>
+
+        {/* Kronos Volatility Gate */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-purple-400" />
+            <h4 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
+              Volatility Gate (Kronos AI)
+            </h4>
+          </div>
+
+          <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
+            <div className="flex-1">
+              <label className="text-sm font-medium text-text-primary block mb-1">
+                Enable Volatility Gate
+              </label>
+              <p className="text-xs text-text-tertiary">
+                Block entries when Kronos predicts low remaining volatility
+              </p>
+            </div>
+            <Switch
+              checked={config.volatility_gate_enabled}
+              onChange={(checked) => update('volatility_gate_enabled', checked)}
+            />
+          </div>
+
+          {config.volatility_gate_enabled && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-text-primary">
+                  Min Relative Spread
+                </label>
+                <span className="text-sm font-mono font-semibold text-accent-primary">
+                  {(config.min_kronos_spread * 10000).toFixed(1)} bps
+                </span>
+              </div>
+              <Slider
+                min={1}
+                max={10}
+                step={1}
+                value={config.min_kronos_spread * 10000}
+                onChange={(v) => update('min_kronos_spread', v / 10000)}
+                formatValue={(v) => `${v.toFixed(1)} bps`}
+              />
+              <p className="text-xs text-text-tertiary">
+                Higher = only trade in high-volatility windows. Recommended: 2-4 bps
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Fade Mode */}
+        {config.volatility_gate_enabled && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-orange-400" />
+              <h4 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
+                Fade Mode (Contrarian)
+              </h4>
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
+              <div className="flex-1">
+                <label className="text-sm font-medium text-text-primary block mb-1">
+                  Enable Fade Mode
+                </label>
+                <p className="text-xs text-text-tertiary">
+                  Buy trailing side when leader is overextended in low-vol markets
+                </p>
+              </div>
+              <Switch
+                checked={config.fade_enabled}
+                onChange={(checked) => update('fade_enabled', checked)}
+              />
+            </div>
+
+            {config.fade_enabled && (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-text-primary">
+                      Fade Trigger (Leader Price)
+                    </label>
+                    <span className="text-sm font-mono font-semibold text-orange-400">
+                      ${config.fade_trigger_price.toFixed(2)}
+                    </span>
+                  </div>
+                  <Slider
+                    min={75}
+                    max={92}
+                    step={1}
+                    value={config.fade_trigger_price * 100}
+                    onChange={(v) => update('fade_trigger_price', v / 100)}
+                    formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Leader must be this high (overextended) before fading
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-text-primary">
+                      Fade Shares
+                    </label>
+                    <span className="text-sm font-mono font-semibold text-orange-400">
+                      {config.fade_num_shares}
+                    </span>
+                  </div>
+                  <Slider
+                    min={10}
+                    max={200}
+                    step={5}
+                    value={config.fade_num_shares}
+                    onChange={(v) => update('fade_num_shares', v)}
+                    formatValue={(v) => `${v}`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Trailing shares are cheap (~$0.18) so you can buy more
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-text-primary">
+                      Fade Stop-Loss
+                    </label>
+                    <span className="text-sm font-mono font-semibold text-negative">
+                      ${config.fade_stop_loss.toFixed(2)}
+                    </span>
+                  </div>
+                  <Slider
+                    min={3}
+                    max={15}
+                    step={1}
+                    value={config.fade_stop_loss * 100}
+                    onChange={(v) => update('fade_stop_loss', v / 100)}
+                    formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-text-primary">
+                      Max MQS for Fade
+                    </label>
+                    <span className="text-sm font-mono font-semibold text-orange-400">
+                      {(config.fade_mqs_max * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <Slider
+                    min={20}
+                    max={60}
+                    step={5}
+                    value={config.fade_mqs_max * 100}
+                    onChange={(v) => update('fade_mqs_max', v / 100)}
+                    formatValue={(v) => `${v}%`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Only fade when momentum is weak (MQS below this)
+                  </p>
+                </div>
+
+                {/* Fade Economics */}
+                <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                  <p className="text-xs font-semibold text-orange-400 uppercase tracking-wide mb-2">
+                    Fade Economics
+                  </p>
+                  <div className="grid grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <p className="text-text-tertiary mb-1">Cost:</p>
+                      <p className="font-mono font-semibold text-text-primary">
+                        ~${(config.fade_num_shares * 0.18).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-text-tertiary mb-1">Win payout:</p>
+                      <p className="font-mono font-semibold text-positive">
+                        +${(config.fade_num_shares * 0.82).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-text-tertiary mb-1">Max loss:</p>
+                      <p className="font-mono font-semibold text-negative">
+                        -${(config.fade_num_shares * 0.18).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-text-tertiary mt-2">
+                    Risk/Reward: 1:4.5 — only needs ~20% win rate to break even
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Trade Economics Preview */}
         <div className="p-4 bg-accent-muted border border-accent-primary/30 rounded-lg">

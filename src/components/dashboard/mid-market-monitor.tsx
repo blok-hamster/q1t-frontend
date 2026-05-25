@@ -17,6 +17,22 @@ function q2(v: number | null | undefined): number | null {
   return v != null ? Math.round(v * 100) / 100 : null;
 }
 
+function formatDistance(marketType: string, value: number): string {
+  const asset = marketType.split('-')[0].toUpperCase();
+  if (asset === 'DOGE') return `$${value.toFixed(4)}`;
+  if (asset === 'SOL') return `$${value.toFixed(2)}`;
+  if (asset === 'ETH') return `$${value.toFixed(1)}`;
+  return `$${value.toFixed(1)}`;
+}
+
+function isDistanceSignificant(marketType: string, value: number): boolean {
+  const asset = marketType.split('-')[0].toUpperCase();
+  if (asset === 'DOGE') return value >= 0.0002;
+  if (asset === 'SOL') return value >= 0.10;
+  if (asset === 'ETH') return value >= 3;
+  return value >= 25;
+}
+
 export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, marketType = 'btc-5m' }: MidMarketMonitorProps) {
   const { socket } = useSocket();
 
@@ -255,8 +271,8 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
           </div>
           <div className="bg-bg-tertiary rounded-lg p-2 border border-border/50">
             <p className="text-text-tertiary mb-0.5 text-[10px] uppercase font-bold">Distance</p>
-            <p className={`font-mono font-bold tabular-nums ${(priceDistance ?? 0) >= 25 ? 'text-positive' : 'text-text-secondary'}`}>
-              {priceDistance != null ? `$${priceDistance.toFixed(1)}` : '—'}
+            <p className={`font-mono font-bold tabular-nums ${priceDistance != null && isDistanceSignificant(marketType, priceDistance) ? 'text-positive' : 'text-text-secondary'}`}>
+              {priceDistance != null ? formatDistance(marketType, priceDistance) : '—'}
             </p>
           </div>
           <Countdown windowEndTs={windowEndTs} windowEnded={windowEnded} />

@@ -19,6 +19,20 @@ const ALL_MARKETS = [
   { id: 'doge-15m', asset: 'DOGE', window: '15m' },
 ];
 
+function formatDistance(asset: string, value: number): string {
+  if (asset === 'DOGE') return `$${value.toFixed(4)}`;
+  if (asset === 'SOL') return `$${value.toFixed(2)}`;
+  if (asset === 'ETH') return `$${value.toFixed(1)}`;
+  return `$${value.toFixed(0)}`;
+}
+
+function isDistanceSignificant(asset: string, value: number): boolean {
+  if (asset === 'DOGE') return value >= 0.0002;
+  if (asset === 'SOL') return value >= 0.10;
+  if (asset === 'ETH') return value >= 3;
+  return value >= 25;
+}
+
 interface MarketState {
   upPrice: number | null;
   downPrice: number | null;
@@ -333,8 +347,8 @@ function MarketRow({ market, state }: { market: typeof ALL_MARKETS[0]; state: Ma
         )}
 
         {state.priceDistance != null && (
-          <span className={`text-[10px] font-mono tabular-nums ${state.priceDistance >= 25 ? 'text-positive' : 'text-text-tertiary'}`}>
-            ${state.priceDistance.toFixed(0)}
+          <span className={`text-[10px] font-mono tabular-nums ${isDistanceSignificant(market.asset, state.priceDistance) ? 'text-positive' : 'text-text-tertiary'}`}>
+            {formatDistance(market.asset, state.priceDistance)}
           </span>
         )}
 

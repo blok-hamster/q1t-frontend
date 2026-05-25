@@ -113,6 +113,16 @@ export interface MarketConfig {
   watch_end_seconds: number;
   mqs_enabled: boolean;
   mqs_threshold: number;
+  // Kronos volatility gating
+  volatility_gate_enabled: boolean;
+  min_kronos_spread: number;
+  // Fade mode
+  fade_enabled: boolean;
+  fade_vol_ceiling: number;
+  fade_trigger_price: number;
+  fade_mqs_max: number;
+  fade_num_shares: number;
+  fade_stop_loss: number;
 }
 
 export interface RiskConfig {
