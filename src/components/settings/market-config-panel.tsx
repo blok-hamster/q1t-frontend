@@ -37,19 +37,19 @@ const MARKET_DEFAULTS: Record<string, { min_price_distance: number; distance_lab
   'eth-15m': { min_price_distance: 5, distance_label: 'ETH distance from strike' },
   'sol-5m': { min_price_distance: 0.10, distance_label: 'SOL distance from strike' },
   'sol-15m': { min_price_distance: 0.20, distance_label: 'SOL distance from strike' },
-  'doge-5m': { min_price_distance: 0.0002, distance_label: 'DOGE distance from strike' },
-  'doge-15m': { min_price_distance: 0.0005, distance_label: 'DOGE distance from strike' },
+  'doge-5m': { min_price_distance: 0.001, distance_label: 'DOGE distance from strike' },
+  'doge-15m': { min_price_distance: 0.002, distance_label: 'DOGE distance from strike' },
 };
 
-const DISTANCE_RANGES: Record<string, { min: number; max: number; step: number; format: (v: number) => string }> = {
-  'btc-5m': { min: 0, max: 100, step: 5, format: (v) => `$${v}` },
-  'btc-15m': { min: 0, max: 200, step: 10, format: (v) => `$${v}` },
-  'eth-5m': { min: 0, max: 20, step: 0.5, format: (v) => `$${v.toFixed(1)}` },
-  'eth-15m': { min: 0, max: 30, step: 1, format: (v) => `$${v}` },
-  'sol-5m': { min: 0, max: 1, step: 0.02, format: (v) => `$${v.toFixed(2)}` },
-  'sol-15m': { min: 0, max: 2, step: 0.05, format: (v) => `$${v.toFixed(2)}` },
-  'doge-5m': { min: 0, max: 0.002, step: 0.0001, format: (v) => `$${v.toFixed(4)}` },
-  'doge-15m': { min: 0, max: 0.005, step: 0.0001, format: (v) => `$${v.toFixed(4)}` },
+const DISTANCE_RANGES: Record<string, { min: number; max: number; step: number; scale: number; format: (v: number) => string }> = {
+  'btc-5m': { min: 0, max: 100, step: 5, scale: 1, format: (v) => `$${v}` },
+  'btc-15m': { min: 0, max: 200, step: 10, scale: 1, format: (v) => `$${v}` },
+  'eth-5m': { min: 0, max: 20, step: 0.5, scale: 1, format: (v) => `$${v.toFixed(1)}` },
+  'eth-15m': { min: 0, max: 30, step: 1, scale: 1, format: (v) => `$${v}` },
+  'sol-5m': { min: 0, max: 1, step: 0.01, scale: 1, format: (v) => `$${v.toFixed(2)}` },
+  'sol-15m': { min: 0, max: 2, step: 0.02, scale: 1, format: (v) => `$${v.toFixed(2)}` },
+  'doge-5m': { min: 0, max: 0.01, step: 0.00005, scale: 100000, format: (v) => `$${v.toFixed(5)}` },
+  'doge-15m': { min: 0, max: 0.02, step: 0.0001, scale: 10000, format: (v) => `$${v.toFixed(5)}` },
 };
 
 const DEFAULT_CONFIG: MarketConfig = {
@@ -64,7 +64,7 @@ const DEFAULT_CONFIG: MarketConfig = {
   max_concurrent: 1,
   cooldown_after_stop_seconds: 300,
   watch_start_seconds: 120,
-  watch_end_seconds: 210,
+  watch_end_seconds: 285,
   mqs_enabled: true,
   mqs_threshold: 0.60,
   volatility_gate_enabled: false,
@@ -76,6 +76,13 @@ const DEFAULT_CONFIG: MarketConfig = {
   fade_num_shares: 50,
   fade_stop_loss: 0.08,
 };
+
+function getTimeframeDefaults(marketType: string): Partial<MarketConfig> {
+  if (marketType.includes('15m')) {
+    return { watch_start_seconds: 480, watch_end_seconds: 870 };
+  }
+  return { watch_start_seconds: 120, watch_end_seconds: 285 };
+}
 
 interface MarketConfigPanelProps {
   marketType: string;
@@ -91,13 +98,15 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
+    const tfDefaults = getTimeframeDefaults(marketType);
     if (initialConfig) {
-      setConfig({ ...DEFAULT_CONFIG, ...initialConfig });
+      setConfig({ ...DEFAULT_CONFIG, ...tfDefaults, ...initialConfig });
       setHasChanges(false);
     } else {
       const defaults = MARKET_DEFAULTS[marketType];
       setConfig({
         ...DEFAULT_CONFIG,
+        ...tfDefaults,
         market_type: marketType,
         min_price_distance: defaults?.min_price_distance ?? 25,
       });
@@ -111,12 +120,14 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
   };
 
   const handleReset = () => {
+    const tfDefaults = getTimeframeDefaults(marketType);
     if (initialConfig) {
-      setConfig(initialConfig);
+      setConfig({ ...DEFAULT_CONFIG, ...tfDefaults, ...initialConfig });
     } else {
       const defaults = MARKET_DEFAULTS[marketType];
       setConfig({
         ...DEFAULT_CONFIG,
+        ...tfDefaults,
         market_type: marketType,
         min_price_distance: defaults?.min_price_distance ?? 25,
       });
@@ -222,14 +233,30 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
                 {distRange.format(config.min_price_distance)}
               </span>
             </div>
-            <Slider
-              min={distRange.min * 100}
-              max={distRange.max * 100}
-              step={distRange.step * 100}
-              value={config.min_price_distance * 100}
-              onChange={(v) => update('min_price_distance', v / 100)}
-              formatValue={(v) => distRange.format(v / 100)}
-            />
+            {marketType.includes('doge') ? (
+              <input
+                type="number"
+                step="any"
+                min={distRange.min}
+                max={distRange.max}
+                value={config.min_price_distance}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!isNaN(v)) update('min_price_distance', v);
+                }}
+                className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-sm font-mono text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-primary"
+                placeholder="e.g. 0.00045"
+              />
+            ) : (
+              <Slider
+                min={distRange.min * distRange.scale}
+                max={distRange.max * distRange.scale}
+                step={distRange.step * distRange.scale}
+                value={config.min_price_distance * distRange.scale}
+                onChange={(v) => update('min_price_distance', v / distRange.scale)}
+                formatValue={(v) => distRange.format(v / distRange.scale)}
+              />
+            )}
             <p className="text-xs text-text-tertiary">
               Reject trades when price is too close to strike (reversal risk)
             </p>
