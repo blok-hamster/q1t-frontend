@@ -17,6 +17,7 @@ export function TradeRow({ trade, variant = 'desktop', onClick }: TradeRowProps)
   const isLoss = trade.status === 'CLOSED_LOSS';
   const isOpen = trade.status === 'OPEN';
   const isPending = trade.status === 'PENDING';
+  const isLimitPending = trade.status === 'LIMIT_PENDING';
   const isRejected = trade.status === 'REJECTED';
   const isMidMarket = trade.strategy === 'mid_market';
 
@@ -25,6 +26,7 @@ export function TradeRow({ trade, variant = 'desktop', onClick }: TradeRowProps)
     if (isLoss) return 'error';
     if (isOpen) return 'info';
     if (isPending) return 'warning';
+    if (isLimitPending) return 'warning';
     if (isRejected) return 'error';
     return 'neutral';
   };
@@ -39,6 +41,8 @@ export function TradeRow({ trade, variant = 'desktop', onClick }: TradeRowProps)
         return 'Open';
       case 'PENDING':
         return 'Pending';
+      case 'LIMIT_PENDING':
+        return 'Limit Open';
       case 'REJECTED':
         return 'Rejected';
       case 'DRAFT':
@@ -85,8 +89,11 @@ export function TradeRow({ trade, variant = 'desktop', onClick }: TradeRowProps)
 
         {/* Strategy badge */}
         {isMidMarket && (
-          <div className="mb-2">
+          <div className="mb-2 flex gap-1">
             <Badge variant="info" size="sm">Mid-Market</Badge>
+            {isLimitPending && trade.limit_order_price && (
+              <Badge variant="warning" size="sm">Limit @ ${trade.limit_order_price.toFixed(2)}</Badge>
+            )}
           </div>
         )}
 
@@ -183,12 +190,25 @@ export function TradeRow({ trade, variant = 'desktop', onClick }: TradeRowProps)
 
       {/* Status */}
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          <Badge variant={getStatusBadgeVariant()} size="sm">
-            {getStatusLabel()}
-          </Badge>
-          {isMidMarket && (
-            <Badge variant="neutral" size="sm">MM</Badge>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1.5">
+            <Badge variant={getStatusBadgeVariant()} size="sm">
+              {getStatusLabel()}
+            </Badge>
+            {isMidMarket && (
+              <Badge variant="neutral" size="sm">MM</Badge>
+            )}
+          </div>
+          {isLimitPending && trade.limit_order_price && (
+            <span className="text-xs text-text-tertiary font-mono">
+              Limit @ ${trade.limit_order_price.toFixed(2)}
+            </span>
+          )}
+          {trade.computed_stop_loss && (isOpen || isLimitPending) && (
+            <span className="text-xs text-text-tertiary font-mono">
+              Stop: ${trade.computed_stop_loss.toFixed(2)}
+              {trade.computed_rr_ratio && ` | R:R ${trade.computed_rr_ratio.toFixed(2)}`}
+            </span>
           )}
         </div>
       </td>

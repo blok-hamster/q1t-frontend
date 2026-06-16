@@ -94,7 +94,7 @@ export interface SettingsResponse {
 }
 
 export interface StrategySelection {
-  active_strategy: 'prediction' | 'mid_market' | 'both' | 'none';
+  active_strategies: string[];
   mid_market_markets: string[];
 }
 
@@ -123,12 +123,40 @@ export interface MarketConfig {
   fade_mqs_max: number;
   fade_num_shares: number;
   fade_stop_loss: number;
+  // Dynamic stop-loss (symmetric R:R)
+  dynamic_stop_enabled?: boolean;
+  target_rr_ratio?: number;
+  min_stop_floor?: number;
+  min_rr_ratio?: number;
+  // Retrace limit entry
+  retrace_entry_enabled?: boolean;
+  limit_entry_price?: number;
+  // Scalp strategy
+  scalp_enabled?: boolean;
+  scalp_max_entry?: number;
+  scalp_min_entry?: number;
+  scalp_tp_delta?: number;
+  scalp_sl_delta?: number;
+  scalp_max_hold_seconds?: number;
+  scalp_num_shares?: number;
+  scalp_watch_start?: number;
+  scalp_watch_end?: number;
+  scalp_mqs_enabled?: boolean;
+  scalp_mqs_max?: number;
+  // Scalp dynamic stop
+  scalp_dynamic_stop_enabled?: boolean;
+  scalp_sl_pct?: number;
+  scalp_min_sl_delta?: number;
+  scalp_min_rr?: number;
 }
 
 export interface RiskConfig {
   max_bet_pct: number;
   min_confidence: number;
   use_kelly: boolean;
+  use_adaptive_sizing?: boolean;
+  adaptive_min_shares?: number;
+  adaptive_max_shares?: number;
 }
 
 export interface RiskConfigUpdateResponse {

@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { settingsApi } from '@/lib/api';
 import { toast } from '@/context/toast-context';
-import { Settings, Save, RotateCcw, Shield } from 'lucide-react';
+import { Settings, Save, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react';
 import type { MarketConfig } from '@/types/api';
 
 function fmtTime(seconds: number): string {
@@ -75,6 +75,12 @@ const DEFAULT_CONFIG: MarketConfig = {
   fade_mqs_max: 0.45,
   fade_num_shares: 50,
   fade_stop_loss: 0.08,
+  dynamic_stop_enabled: true,
+  target_rr_ratio: 1.0,
+  min_stop_floor: 0.50,
+  min_rr_ratio: 0.75,
+  retrace_entry_enabled: false,
+  limit_entry_price: 0.70,
 };
 
 function getTimeframeDefaults(marketType: string): Partial<MarketConfig> {
@@ -96,6 +102,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
   );
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     const tfDefaults = getTimeframeDefaults(marketType);
@@ -142,7 +149,10 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
       const res = await settingsApi.updateMarketConfig(marketType, updates);
       toast.success(`${MARKET_LABELS[marketType] || marketType} config saved`);
       setHasChanges(false);
-      onSave?.(res.marketConfig);
+      // Merge response with current config to preserve fields the server may not return
+      const merged = { ...config, ...res.marketConfig, market_type: marketType };
+      setConfig(merged);
+      onSave?.(merged);
     } catch (error: any) {
       toast.error(error.message || 'Failed to save market config');
     } finally {
@@ -154,9 +164,32 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
   const distLabel = MARKET_DEFAULTS[marketType]?.distance_label || 'Price distance from strike';
   const isInterval15m = marketType.includes('15m');
 
-  const costPerTrade = config.num_shares * config.max_entry_price;
-  const maxLossPerStop = config.num_shares * (config.entry_share_price - config.stop_loss_price);
-  const profitPerWin = config.num_shares * (1.0 - config.entry_share_price);
+  // Economics calculation
+  const retraceEnabled = config.retrace_entry_enabled ?? false;
+  const effectiveEntry = retraceEnabled ? (config.limit_entry_price ?? 0.70) : config.entry_share_price;
+  const dynamicStopEnabled = config.dynamic_stop_enabled ?? true;
+
+  let effectiveStop: number;
+  let effectiveRR: number;
+
+  if (dynamicStopEnabled) {
+    const reward = 1.0 - effectiveEntry;
+    const targetRR = config.target_rr_ratio ?? 1.0;
+    const idealStop = effectiveEntry - (reward / targetRR);
+    effectiveStop = Math.max(idealStop, config.min_stop_floor ?? 0.50);
+    const risk = effectiveEntry - effectiveStop;
+    effectiveRR = risk > 0 ? reward / risk : 0;
+  } else {
+    effectiveStop = config.stop_loss_price;
+    const reward = 1.0 - effectiveEntry;
+    const risk = effectiveEntry - effectiveStop;
+    effectiveRR = risk > 0 ? reward / risk : 0;
+  }
+
+  const profitPerWin = config.num_shares * (1.0 - effectiveEntry);
+  const maxLossPerStop = config.num_shares * (effectiveEntry - effectiveStop);
+  const lossesToWipeWin = maxLossPerStop > 0 ? profitPerWin / maxLossPerStop : Infinity;
+  const breakEvenWinRate = maxLossPerStop > 0 ? maxLossPerStop / (profitPerWin + maxLossPerStop) : 0;
 
   return (
     <Card>
@@ -164,180 +197,124 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Settings className="h-5 w-5 text-accent-primary" />
-            <div>
-              <h3 className="text-lg font-semibold text-text-primary">
-                {MARKET_LABELS[marketType] || marketType}
-              </h3>
-              <p className="text-sm text-text-secondary mt-1">
-                Per-market configuration
-              </p>
-            </div>
+            <h3 className="text-lg font-semibold text-text-primary">
+              {MARKET_LABELS[marketType] || marketType}
+            </h3>
           </div>
-          <Badge variant={config.enabled ? 'success' : 'neutral'}>
-            {config.enabled ? 'Enabled' : 'Disabled'}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={effectiveRR >= 1.0 ? 'success' : effectiveRR >= (config.min_rr_ratio ?? 0.75) ? 'warning' : 'error'}>
+              R:R {effectiveRR.toFixed(1)}:1
+            </Badge>
+            <Switch
+              checked={config.enabled}
+              onChange={(checked) => update('enabled', checked)}
+            />
+          </div>
         </div>
       </CardHeader>
 
-      <CardBody className="space-y-6">
-        {/* Enable Toggle */}
-        <div className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg">
-          <div className="flex-1">
-            <label className="text-sm font-medium text-text-primary block mb-1">
-              Enable {MARKET_LABELS[marketType] || marketType}
-            </label>
-            <p className="text-xs text-text-tertiary">
-              Monitor and trade this market automatically
-            </p>
+      <CardBody className="space-y-5">
+        {/* ═══ TRADE ECONOMICS (always visible summary) ═══ */}
+        <div className="p-4 bg-accent-muted border border-accent-primary/30 rounded-lg">
+          <div className="grid grid-cols-4 gap-3 text-sm">
+            <div>
+              <p className="text-text-tertiary text-xs mb-1">Entry:</p>
+              <p className="font-mono font-semibold text-text-primary">
+                ${effectiveEntry.toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-text-tertiary text-xs mb-1">Stop:</p>
+              <p className="font-mono font-semibold text-negative">
+                ${effectiveStop.toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-text-tertiary text-xs mb-1">Win:</p>
+              <p className="font-mono font-semibold text-positive">
+                +${profitPerWin.toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-text-tertiary text-xs mb-1">Loss:</p>
+              <p className="font-mono font-semibold text-negative">
+                -${maxLossPerStop.toFixed(2)}
+              </p>
+            </div>
           </div>
-          <Switch
-            checked={config.enabled}
-            onChange={(checked) => update('enabled', checked)}
-          />
+          <div className="border-t border-accent-primary/20 mt-3 pt-2 flex justify-between text-xs">
+            <span className="text-text-tertiary">
+              Losses to wipe 1 win: <span className="font-mono font-semibold text-text-primary">
+                {lossesToWipeWin === Infinity ? '∞' : lossesToWipeWin.toFixed(1)}
+              </span>
+            </span>
+            <span className="text-text-tertiary">
+              Break-even WR: <span className="font-mono font-semibold text-text-primary">
+                {(breakEvenWinRate * 100).toFixed(0)}%
+              </span>
+            </span>
+          </div>
         </div>
 
-        {/* Entry Conditions */}
+        {/* ═══ ENTRY & RISK (the 3 things you actually tune) ═══ */}
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
-            Entry Conditions
-          </h4>
-
-          <div className="space-y-3">
+          {/* Signal Price */}
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-primary">
-                Entry Share Price
-              </label>
+              <label className="text-sm font-medium text-text-primary">Signal Price</label>
               <span className="text-sm font-mono font-semibold text-accent-primary">
                 ${config.entry_share_price.toFixed(2)}
               </span>
             </div>
             <Slider
-              min={50}
-              max={95}
+              min={55}
+              max={92}
               step={1}
               value={config.entry_share_price * 100}
               onChange={(v) => update('entry_share_price', v / 100)}
               formatValue={(v) => `$${(v / 100).toFixed(2)}`}
             />
             <p className="text-xs text-text-tertiary">
-              Only enter when the leading side reaches this price
+              Momentum confirmed when leading side reaches this price
             </p>
           </div>
 
-          <div className="space-y-3">
+          {/* Retrace Entry */}
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-primary">
-                Min {distLabel}
-              </label>
-              <span className="text-sm font-mono font-semibold text-accent-primary">
-                {distRange.format(config.min_price_distance)}
-              </span>
+              <label className="text-sm font-medium text-text-primary">Retrace Entry</label>
+              <Switch
+                checked={config.retrace_entry_enabled ?? false}
+                onChange={(checked) => update('retrace_entry_enabled', checked)}
+              />
             </div>
-            {marketType.includes('doge') ? (
-              <input
-                type="number"
-                step="any"
-                min={distRange.min}
-                max={distRange.max}
-                value={config.min_price_distance}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  if (!isNaN(v)) update('min_price_distance', v);
-                }}
-                className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-sm font-mono text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-primary"
-                placeholder="e.g. 0.00045"
-              />
-            ) : (
-              <Slider
-                min={distRange.min * distRange.scale}
-                max={distRange.max * distRange.scale}
-                step={distRange.step * distRange.scale}
-                value={config.min_price_distance * distRange.scale}
-                onChange={(v) => update('min_price_distance', v / distRange.scale)}
-                formatValue={(v) => distRange.format(v / distRange.scale)}
-              />
+            {retraceEnabled && (
+              <div className="space-y-2 pl-1 border-l-2 border-cyan-500/30 ml-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-text-secondary">Limit Price</label>
+                  <span className="text-sm font-mono font-semibold text-cyan-400">
+                    ${(config.limit_entry_price ?? 0.70).toFixed(2)}
+                  </span>
+                </div>
+                <Slider
+                  min={50}
+                  max={Math.max(51, Math.round(config.entry_share_price * 100) - 1)}
+                  step={1}
+                  value={(config.limit_entry_price ?? 0.70) * 100}
+                  onChange={(v) => update('limit_entry_price', v / 100)}
+                  formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                />
+                <p className="text-xs text-text-tertiary">
+                  Buy here instead — saves ${(config.entry_share_price - (config.limit_entry_price ?? 0.70)).toFixed(2)}/share. Holds until filled or window ends.
+                </p>
+              </div>
             )}
-            <p className="text-xs text-text-tertiary">
-              Reject trades when price is too close to strike (reversal risk)
-            </p>
           </div>
 
-          <div className="space-y-3">
+          {/* Shares */}
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-primary">
-                Max Entry Price (Slippage Cap)
-              </label>
-              <span className="text-sm font-mono font-semibold text-accent-primary">
-                ${config.max_entry_price.toFixed(2)}
-              </span>
-            </div>
-            <Slider
-              min={50}
-              max={95}
-              step={1}
-              value={config.max_entry_price * 100}
-              onChange={(v) => update('max_entry_price', v / 100)}
-              formatValue={(v) => `$${(v / 100).toFixed(2)}`}
-            />
-          </div>
-        </div>
-
-        {/* Risk / Exit */}
-        <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
-            Risk / Exit
-          </h4>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-primary">
-                Stop-Loss Price
-              </label>
-              <span className="text-sm font-mono font-semibold text-negative">
-                ${config.stop_loss_price.toFixed(2)}
-              </span>
-            </div>
-            <Slider
-              min={10}
-              max={70}
-              step={5}
-              value={config.stop_loss_price * 100}
-              onChange={(v) => update('stop_loss_price', v / 100)}
-              formatValue={(v) => `$${(v / 100).toFixed(2)}`}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-primary">
-                Cooldown After Stop-Loss
-              </label>
-              <span className="text-sm font-mono font-semibold text-accent-primary">
-                {fmtTime(config.cooldown_after_stop_seconds)}
-              </span>
-            </div>
-            <Slider
-              min={0}
-              max={isInterval15m ? 1800 : 600}
-              step={30}
-              value={config.cooldown_after_stop_seconds}
-              onChange={(v) => update('cooldown_after_stop_seconds', v)}
-              formatValue={(v) => fmtTime(v)}
-            />
-          </div>
-        </div>
-
-        {/* Position Sizing */}
-        <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
-            Position Sizing
-          </h4>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-primary">
-                Shares per Trade
-              </label>
+              <label className="text-sm font-medium text-text-primary">Shares per Trade</label>
               <span className="text-sm font-mono font-semibold text-accent-primary">
                 {config.num_shares}
               </span>
@@ -352,359 +329,313 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
             />
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-primary">
-                Max Daily Trades
-              </label>
-              <span className="text-sm font-mono font-semibold text-accent-primary">
-                {config.max_daily_trades}
-              </span>
-            </div>
-            <Slider
-              min={1}
-              max={500}
-              step={10}
-              value={config.max_daily_trades}
-              onChange={(v) => update('max_daily_trades', v)}
-              formatValue={(v) => `${v}`}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-primary">
-                Max Concurrent Positions
-              </label>
-              <span className="text-sm font-mono font-semibold text-accent-primary">
-                {config.max_concurrent}
-              </span>
-            </div>
-            <Slider
-              min={1}
-              max={5}
-              step={1}
-              value={config.max_concurrent}
-              onChange={(v) => update('max_concurrent', v)}
-              formatValue={(v) => `${v}`}
-            />
-          </div>
-        </div>
-
-        {/* Watch Window */}
-        <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
-            Watch Window
-          </h4>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-primary">
-                Start Watching At
-              </label>
-              <span className="text-sm font-mono font-semibold text-accent-primary">
-                T+{fmtTime(config.watch_start_seconds)}
-              </span>
-            </div>
-            <Slider
-              min={10}
-              max={isInterval15m ? 840 : 270}
-              step={10}
-              value={config.watch_start_seconds}
-              onChange={(v) => update('watch_start_seconds', v)}
-              formatValue={(v) => `T+${fmtTime(v)}`}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text-primary">
-                Stop Watching At
-              </label>
-              <span className="text-sm font-mono font-semibold text-accent-primary">
-                T+{fmtTime(config.watch_end_seconds)}
-              </span>
-            </div>
-            <Slider
-              min={60}
-              max={isInterval15m ? 890 : 290}
-              step={10}
-              value={config.watch_end_seconds}
-              onChange={(v) => update('watch_end_seconds', v)}
-              formatValue={(v) => `T+${fmtTime(v)}`}
-            />
-          </div>
-        </div>
-
-        {/* Momentum Quality Score */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-accent-primary" />
-            <h4 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
-              Entry Filter (MQS)
-            </h4>
-          </div>
-
-          <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
-            <div className="flex-1">
-              <label className="text-sm font-medium text-text-primary block mb-1">
-                Enable MQS Filter
-              </label>
-              <p className="text-xs text-text-tertiary">
-                Only enter when momentum quality score passes threshold
-              </p>
-            </div>
-            <Switch
-              checked={config.mqs_enabled}
-              onChange={(checked) => update('mqs_enabled', checked)}
-            />
-          </div>
-
-          {config.mqs_enabled && (
-            <div className="space-y-3">
+          {/* R:R Ratio */}
+          {dynamicStopEnabled && (
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-text-primary">
-                  MQS Threshold
-                </label>
+                <label className="text-sm font-medium text-text-primary">Target R:R</label>
                 <span className="text-sm font-mono font-semibold text-accent-primary">
-                  {(config.mqs_threshold * 100).toFixed(0)}%
+                  {(config.target_rr_ratio ?? 1.0).toFixed(1)}:1
                 </span>
               </div>
               <Slider
-                min={30}
-                max={90}
-                step={5}
-                value={config.mqs_threshold * 100}
-                onChange={(v) => update('mqs_threshold', v / 100)}
-                formatValue={(v) => `${v}%`}
-              />
-              <p className="text-xs text-text-tertiary">
-                Higher = fewer but higher quality entries. Recommended: 55-70%
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Kronos Volatility Gate */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-purple-400" />
-            <h4 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
-              Volatility Gate (Kronos AI)
-            </h4>
-          </div>
-
-          <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
-            <div className="flex-1">
-              <label className="text-sm font-medium text-text-primary block mb-1">
-                Enable Volatility Gate
-              </label>
-              <p className="text-xs text-text-tertiary">
-                Block entries when Kronos predicts low remaining volatility
-              </p>
-            </div>
-            <Switch
-              checked={config.volatility_gate_enabled}
-              onChange={(checked) => update('volatility_gate_enabled', checked)}
-            />
-          </div>
-
-          {config.volatility_gate_enabled && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-text-primary">
-                  Min Relative Spread
-                </label>
-                <span className="text-sm font-mono font-semibold text-accent-primary">
-                  {(config.min_kronos_spread * 10000).toFixed(1)} bps
-                </span>
-              </div>
-              <Slider
-                min={1}
-                max={10}
+                min={5}
+                max={20}
                 step={1}
-                value={config.min_kronos_spread * 10000}
-                onChange={(v) => update('min_kronos_spread', v / 10000)}
-                formatValue={(v) => `${v.toFixed(1)} bps`}
+                value={(config.target_rr_ratio ?? 1.0) * 10}
+                onChange={(v) => update('target_rr_ratio', v / 10)}
+                formatValue={(v) => `${(v / 10).toFixed(1)}:1`}
               />
               <p className="text-xs text-text-tertiary">
-                Higher = only trade in high-volatility windows. Recommended: 2-4 bps
+                1.0 = win equals loss. 1.5 = each win covers 1.5 losses.
               </p>
             </div>
           )}
         </div>
 
-        {/* Fade Mode */}
-        {config.volatility_gate_enabled && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-orange-400" />
-              <h4 className="text-sm font-semibold text-text-primary uppercase tracking-wide">
-                Fade Mode (Contrarian)
-              </h4>
-            </div>
+        {/* ═══ ADVANCED (collapsed by default) ═══ */}
+        <div className="border-t border-border-primary pt-4">
+          <button
+            type="button"
+            className="flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors w-full"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            Advanced Settings
+          </button>
 
-            <div className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
-              <div className="flex-1">
-                <label className="text-sm font-medium text-text-primary block mb-1">
-                  Enable Fade Mode
-                </label>
-                <p className="text-xs text-text-tertiary">
-                  Buy trailing side when leader is overextended in low-vol markets
-                </p>
-              </div>
-              <Switch
-                checked={config.fade_enabled}
-                onChange={(checked) => update('fade_enabled', checked)}
-              />
-            </div>
+          {showAdvanced && (
+            <div className="mt-4 space-y-5">
+              {/* Stop-Loss Settings */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
+                  Stop-Loss
+                </h4>
 
-            {config.fade_enabled && (
-              <div className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-text-primary">
-                      Fade Trigger (Leader Price)
-                    </label>
-                    <span className="text-sm font-mono font-semibold text-orange-400">
-                      ${config.fade_trigger_price.toFixed(2)}
-                    </span>
-                  </div>
-                  <Slider
-                    min={75}
-                    max={92}
-                    step={1}
-                    value={config.fade_trigger_price * 100}
-                    onChange={(v) => update('fade_trigger_price', v / 100)}
-                    formatValue={(v) => `$${(v / 100).toFixed(2)}`}
-                  />
-                  <p className="text-xs text-text-tertiary">
-                    Leader must be this high (overextended) before fading
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-text-primary">
-                      Fade Shares
-                    </label>
-                    <span className="text-sm font-mono font-semibold text-orange-400">
-                      {config.fade_num_shares}
-                    </span>
-                  </div>
-                  <Slider
-                    min={10}
-                    max={200}
-                    step={5}
-                    value={config.fade_num_shares}
-                    onChange={(v) => update('fade_num_shares', v)}
-                    formatValue={(v) => `${v}`}
-                  />
-                  <p className="text-xs text-text-tertiary">
-                    Trailing shares are cheap (~$0.18) so you can buy more
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-text-primary">
-                      Fade Stop-Loss
-                    </label>
-                    <span className="text-sm font-mono font-semibold text-negative">
-                      ${config.fade_stop_loss.toFixed(2)}
-                    </span>
-                  </div>
-                  <Slider
-                    min={3}
-                    max={15}
-                    step={1}
-                    value={config.fade_stop_loss * 100}
-                    onChange={(v) => update('fade_stop_loss', v / 100)}
-                    formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-text-primary">Dynamic Stop</label>
+                  <Switch
+                    checked={config.dynamic_stop_enabled ?? true}
+                    onChange={(checked) => update('dynamic_stop_enabled', checked)}
                   />
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-text-primary">
-                      Max MQS for Fade
-                    </label>
-                    <span className="text-sm font-mono font-semibold text-orange-400">
-                      {(config.fade_mqs_max * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  <Slider
-                    min={20}
-                    max={60}
-                    step={5}
-                    value={config.fade_mqs_max * 100}
-                    onChange={(v) => update('fade_mqs_max', v / 100)}
-                    formatValue={(v) => `${v}%`}
-                  />
-                  <p className="text-xs text-text-tertiary">
-                    Only fade when momentum is weak (MQS below this)
-                  </p>
-                </div>
-
-                {/* Fade Economics */}
-                <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                  <p className="text-xs font-semibold text-orange-400 uppercase tracking-wide mb-2">
-                    Fade Economics
-                  </p>
-                  <div className="grid grid-cols-3 gap-3 text-xs">
-                    <div>
-                      <p className="text-text-tertiary mb-1">Cost:</p>
-                      <p className="font-mono font-semibold text-text-primary">
-                        ~${(config.fade_num_shares * 0.18).toFixed(2)}
-                      </p>
+                {dynamicStopEnabled ? (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-text-secondary">Min Stop Floor</label>
+                        <span className="text-xs font-mono text-text-primary">
+                          ${(config.min_stop_floor ?? 0.50).toFixed(2)}
+                        </span>
+                      </div>
+                      <Slider
+                        min={30}
+                        max={65}
+                        step={1}
+                        value={(config.min_stop_floor ?? 0.50) * 100}
+                        onChange={(v) => update('min_stop_floor', v / 100)}
+                        formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                      />
                     </div>
-                    <div>
-                      <p className="text-text-tertiary mb-1">Win payout:</p>
-                      <p className="font-mono font-semibold text-positive">
-                        +${(config.fade_num_shares * 0.82).toFixed(2)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-text-tertiary mb-1">Max loss:</p>
-                      <p className="font-mono font-semibold text-negative">
-                        -${(config.fade_num_shares * 0.18).toFixed(2)}
-                      </p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-text-secondary">Min Acceptable R:R</label>
+                        <span className="text-xs font-mono text-text-primary">
+                          {(config.min_rr_ratio ?? 0.75).toFixed(2)}:1
+                        </span>
+                      </div>
+                      <Slider
+                        min={50}
+                        max={150}
+                        step={5}
+                        value={(config.min_rr_ratio ?? 0.75) * 100}
+                        onChange={(v) => update('min_rr_ratio', v / 100)}
+                        formatValue={(v) => `${(v / 100).toFixed(2)}:1`}
+                      />
                     </div>
                   </div>
-                  <p className="text-xs text-text-tertiary mt-2">
-                    Risk/Reward: 1:4.5 — only needs ~20% win rate to break even
-                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-text-secondary">Fixed Stop Price</label>
+                      <span className="text-xs font-mono text-negative">
+                        ${config.stop_loss_price.toFixed(2)}
+                      </span>
+                    </div>
+                    <Slider
+                      min={10}
+                      max={70}
+                      step={5}
+                      value={config.stop_loss_price * 100}
+                      onChange={(v) => update('stop_loss_price', v / 100)}
+                      formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Cooldown After Stop</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      {fmtTime(config.cooldown_after_stop_seconds)}
+                    </span>
+                  </div>
+                  <Slider
+                    min={0}
+                    max={isInterval15m ? 1800 : 600}
+                    step={30}
+                    value={config.cooldown_after_stop_seconds}
+                    onChange={(v) => update('cooldown_after_stop_seconds', v)}
+                    formatValue={(v) => fmtTime(v)}
+                  />
                 </div>
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Trade Economics Preview */}
-        <div className="p-4 bg-accent-muted border border-accent-primary/30 rounded-lg">
-          <p className="text-xs font-semibold text-accent-primary uppercase tracking-wide mb-3">
-            Trade Economics Preview
-          </p>
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-text-tertiary text-xs mb-1">Max cost:</p>
-              <p className="font-mono font-semibold text-text-primary">
-                ${costPerTrade.toFixed(2)}
-              </p>
+              {/* Entry Filters */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
+                  Entry Filters
+                </h4>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Max Entry Price (slippage cap)</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      ${config.max_entry_price.toFixed(2)}
+                    </span>
+                  </div>
+                  <Slider
+                    min={50}
+                    max={95}
+                    step={1}
+                    value={config.max_entry_price * 100}
+                    onChange={(v) => update('max_entry_price', v / 100)}
+                    formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Min {distLabel}</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      {distRange.format(config.min_price_distance)}
+                    </span>
+                  </div>
+                  {marketType.includes('doge') ? (
+                    <input
+                      type="number"
+                      step="any"
+                      min={distRange.min}
+                      max={distRange.max}
+                      value={config.min_price_distance}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (!isNaN(v)) update('min_price_distance', v);
+                      }}
+                      className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-sm font-mono text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-primary"
+                    />
+                  ) : (
+                    <Slider
+                      min={distRange.min * distRange.scale}
+                      max={distRange.max * distRange.scale}
+                      step={distRange.step * distRange.scale}
+                      value={config.min_price_distance * distRange.scale}
+                      onChange={(v) => update('min_price_distance', v / distRange.scale)}
+                      formatValue={(v) => distRange.format(v / distRange.scale)}
+                    />
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-text-secondary">MQS Filter</label>
+                  <Switch
+                    checked={config.mqs_enabled}
+                    onChange={(checked) => update('mqs_enabled', checked)}
+                  />
+                </div>
+                {config.mqs_enabled && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-text-secondary">MQS Threshold</label>
+                      <span className="text-xs font-mono text-text-primary">
+                        {(config.mqs_threshold * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <Slider
+                      min={30}
+                      max={90}
+                      step={5}
+                      value={config.mqs_threshold * 100}
+                      onChange={(v) => update('mqs_threshold', v / 100)}
+                      formatValue={(v) => `${v}%`}
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-text-secondary">Kronos Volatility Gate</label>
+                  <Switch
+                    checked={config.volatility_gate_enabled}
+                    onChange={(checked) => update('volatility_gate_enabled', checked)}
+                  />
+                </div>
+                {config.volatility_gate_enabled && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-text-secondary">Min Relative Spread</label>
+                      <span className="text-xs font-mono text-text-primary">
+                        {(config.min_kronos_spread * 10000).toFixed(1)} bps
+                      </span>
+                    </div>
+                    <Slider
+                      min={1}
+                      max={10}
+                      step={1}
+                      value={config.min_kronos_spread * 10000}
+                      onChange={(v) => update('min_kronos_spread', v / 10000)}
+                      formatValue={(v) => `${v.toFixed(1)} bps`}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Limits */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
+                  Limits
+                </h4>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-text-secondary">Max Daily</label>
+                      <span className="text-xs font-mono text-text-primary">{config.max_daily_trades}</span>
+                    </div>
+                    <Slider
+                      min={1}
+                      max={500}
+                      step={10}
+                      value={config.max_daily_trades}
+                      onChange={(v) => update('max_daily_trades', v)}
+                      formatValue={(v) => `${v}`}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-text-secondary">Max Concurrent</label>
+                      <span className="text-xs font-mono text-text-primary">{config.max_concurrent}</span>
+                    </div>
+                    <Slider
+                      min={1}
+                      max={5}
+                      step={1}
+                      value={config.max_concurrent}
+                      onChange={(v) => update('max_concurrent', v)}
+                      formatValue={(v) => `${v}`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Watch Window */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
+                  Watch Window
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-text-secondary">Start</label>
+                      <span className="text-xs font-mono text-text-primary">T+{fmtTime(config.watch_start_seconds)}</span>
+                    </div>
+                    <Slider
+                      min={10}
+                      max={isInterval15m ? 840 : 270}
+                      step={10}
+                      value={config.watch_start_seconds}
+                      onChange={(v) => update('watch_start_seconds', v)}
+                      formatValue={(v) => `T+${fmtTime(v)}`}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-text-secondary">End</label>
+                      <span className="text-xs font-mono text-text-primary">T+{fmtTime(config.watch_end_seconds)}</span>
+                    </div>
+                    <Slider
+                      min={60}
+                      max={isInterval15m ? 890 : 290}
+                      step={10}
+                      value={config.watch_end_seconds}
+                      onChange={(v) => update('watch_end_seconds', v)}
+                      formatValue={(v) => `T+${fmtTime(v)}`}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-text-tertiary text-xs mb-1">Profit/win:</p>
-              <p className="font-mono font-semibold text-positive">
-                +${profitPerWin.toFixed(2)}
-              </p>
-            </div>
-            <div>
-              <p className="text-text-tertiary text-xs mb-1">Loss/stop:</p>
-              <p className="font-mono font-semibold text-negative">
-                -${maxLossPerStop.toFixed(2)}
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       </CardBody>
 

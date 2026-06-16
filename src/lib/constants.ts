@@ -31,6 +31,7 @@ export const API_ENDPOINTS = {
   // Execution
   EXECUTION_LEDGER: '/api/execution/ledger',
   EXECUTION_MID_MARKET_STATS: '/api/execution/mid-market-stats',
+  EXECUTION_SCALP_STATS: '/api/execution/scalp-stats',
 
   // Market
   MARKET_DETAILS: (slug: string) => `/api/market/${slug}`,
@@ -99,6 +100,7 @@ export const WS_EVENTS = {
 export const TRADE_STATUS = {
   DRAFT: 'DRAFT',
   PENDING: 'PENDING',
+  LIMIT_PENDING: 'LIMIT_PENDING',
   OPEN: 'OPEN',
   CLOSED_WIN: 'CLOSED_WIN',
   CLOSED_LOSS: 'CLOSED_LOSS',
@@ -111,6 +113,7 @@ export const TRADE_STATUS = {
 export const TRADE_STATUS_LABELS: Record<keyof typeof TRADE_STATUS, string> = {
   DRAFT: 'Draft',
   PENDING: 'Pending',
+  LIMIT_PENDING: 'Limit Open',
   OPEN: 'Open',
   CLOSED_WIN: 'Win',
   CLOSED_LOSS: 'Loss',
@@ -123,6 +126,7 @@ export const TRADE_STATUS_LABELS: Record<keyof typeof TRADE_STATUS, string> = {
 export const TRADE_STATUS_COLORS: Record<keyof typeof TRADE_STATUS, { text: string; bg: string }> = {
   DRAFT: { text: 'text-text-tertiary', bg: 'bg-white/5' },
   PENDING: { text: 'text-neutral', bg: 'bg-neutral/20' },
+  LIMIT_PENDING: { text: 'text-neutral', bg: 'bg-neutral/20' },
   OPEN: { text: 'text-accent-primary', bg: 'bg-accent-muted' },
   CLOSED_WIN: { text: 'text-positive', bg: 'bg-positive/20' },
   CLOSED_LOSS: { text: 'text-negative', bg: 'bg-negative/20' },
@@ -265,6 +269,7 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   STRATEGIES_PREDICTIONS: '/strategies/predictions',
   STRATEGIES_MID_MARKET: '/strategies/mid-market',
+  STRATEGIES_SCALP: '/strategies/scalp',
   PORTFOLIO: '/portfolio',
   TRADES: '/trades',
   SETTINGS: '/settings',
@@ -283,6 +288,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.DASHBOARD,
   ROUTES.STRATEGIES_PREDICTIONS,
   ROUTES.STRATEGIES_MID_MARKET,
+  ROUTES.STRATEGIES_SCALP,
   ROUTES.PORTFOLIO,
   ROUTES.TRADES,
   ROUTES.SETTINGS,

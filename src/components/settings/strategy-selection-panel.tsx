@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { settingsApi } from '@/lib/api';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { toast } from '@/context/toast-context';
-import { Target, TrendingUp, Zap } from 'lucide-react';
+import { Target, TrendingUp, Zap, Shield } from 'lucide-react';
 import type { StrategySelection, MarketConfig } from '@/types/api';
 import { cn } from '@/lib/utils/cn';
 
@@ -21,28 +21,22 @@ const SUPPORTED_MARKETS = [
 
 const STRATEGIES = [
   {
-    value: 'prediction' as const,
-    label: 'Prediction Only',
+    value: 'prediction',
+    label: 'Prediction',
     description: 'AI predicts direction at market open',
     icon: Target,
   },
   {
-    value: 'mid_market' as const,
-    label: 'Mid-Market Only',
+    value: 'mid_market',
+    label: 'Mid-Market',
     description: 'Momentum entry during active windows',
     icon: TrendingUp,
   },
   {
-    value: 'both' as const,
-    label: 'Both Strategies',
-    description: 'Run prediction and mid-market simultaneously',
-    icon: Zap,
-  },
-  {
-    value: 'none' as const,
-    label: 'None (Paused)',
-    description: 'No automated trading',
-    icon: Target,
+    value: 'scalp',
+    label: 'Scalp',
+    description: 'Buy cheap trailing side, exit on TP/SL',
+    icon: Shield,
   },
 ];
 
@@ -56,15 +50,24 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
   const [strategy, setStrategy] = useState<StrategySelection>(initialStrategy);
   const [saving, setSaving] = useState(false);
 
-  const handleStrategyChange = async (active_strategy: StrategySelection['active_strategy']) => {
+  const handleStrategyToggle = async (value: string) => {
+    const current = strategy.active_strategies || [];
+    const updated = current.includes(value)
+      ? current.filter((s) => s !== value)
+      : [...current, value];
+
     setSaving(true);
     try {
-      const resp = await settingsApi.updateStrategySelection({ active_strategy });
+      const resp = await settingsApi.updateStrategySelection({ active_strategies: updated });
       setStrategy(resp.strategySelection);
       onUpdate(resp.strategySelection);
-      toast.success(`Strategy set to ${active_strategy.replace('_', ' ')}`);
-    } catch (error) {
-      toast.error('Failed to update strategy');
+      if (updated.length === 0) {
+        toast.success('All strategies paused');
+      } else {
+        toast.success(`Active: ${updated.join(', ').replace(/_/g, ' ')}`);
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to update strategy');
     } finally {
       setSaving(false);
     }
@@ -88,7 +91,8 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
     }
   };
 
-  const showMarketSelection = strategy.active_strategy === 'mid_market' || strategy.active_strategy === 'both';
+  const activeStrategies = strategy.active_strategies || [];
+  const showMarketSelection = activeStrategies.includes('mid_market') || activeStrategies.includes('scalp');
 
   return (
     <Card padding="lg">
@@ -98,46 +102,55 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
           <div>
             <h3 className="text-lg font-semibold text-text-primary">Strategy Selection</h3>
             <p className="text-sm text-text-secondary mt-1">
-              Choose which trading strategies to run
+              Toggle one or more strategies to run simultaneously
             </p>
           </div>
         </div>
       </CardHeader>
       <CardBody>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {STRATEGIES.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => handleStrategyChange(s.value)}
-              disabled={saving}
-              className={cn(
-                'flex items-start gap-3 p-4 rounded-lg border transition-colors text-left',
-                strategy.active_strategy === s.value
-                  ? 'border-accent-primary bg-accent-muted'
-                  : 'border-border hover:border-text-tertiary'
-              )}
-            >
-              <s.icon className={cn(
-                'h-5 w-5 mt-0.5 shrink-0',
-                strategy.active_strategy === s.value ? 'text-accent-primary' : 'text-text-tertiary'
-              )} />
-              <div>
-                <p className={cn(
-                  'text-sm font-medium',
-                  strategy.active_strategy === s.value ? 'text-accent-primary' : 'text-text-primary'
-                )}>
-                  {s.label}
-                </p>
-                <p className="text-xs text-text-secondary mt-0.5">{s.description}</p>
-              </div>
-            </button>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {STRATEGIES.map((s) => {
+            const isActive = activeStrategies.includes(s.value);
+            return (
+              <button
+                key={s.value}
+                onClick={() => handleStrategyToggle(s.value)}
+                disabled={saving}
+                className={cn(
+                  'flex items-start gap-3 p-4 rounded-lg border transition-colors text-left',
+                  isActive
+                    ? 'border-accent-primary bg-accent-muted'
+                    : 'border-border hover:border-text-tertiary'
+                )}
+              >
+                <s.icon className={cn(
+                  'h-5 w-5 mt-0.5 shrink-0',
+                  isActive ? 'text-accent-primary' : 'text-text-tertiary'
+                )} />
+                <div>
+                  <p className={cn(
+                    'text-sm font-medium',
+                    isActive ? 'text-accent-primary' : 'text-text-primary'
+                  )}>
+                    {s.label}
+                  </p>
+                  <p className="text-xs text-text-secondary mt-0.5">{s.description}</p>
+                </div>
+              </button>
+            );
+          })}
         </div>
+
+        {activeStrategies.length === 0 && (
+          <p className="text-sm text-text-tertiary mt-3 text-center">
+            No strategies active — all automated trading is paused
+          </p>
+        )}
 
         {showMarketSelection && (
           <div className="mt-6 pt-4 border-t border-border">
             <p className="text-sm font-medium text-text-primary mb-3">
-              Enabled Markets (Mid-Market)
+              Enabled Markets
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {SUPPORTED_MARKETS.map((m) => {
@@ -166,7 +179,7 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
               })}
             </div>
             <p className="text-xs text-text-tertiary mt-2">
-              Select which markets the mid-market strategy monitors
+              Select which markets to monitor for mid-market and scalp strategies
             </p>
           </div>
         )}

@@ -149,7 +149,7 @@ export default function MidMarketPage() {
   if (loading) return <Loading text="Loading mid-market strategy..." />;
 
   const enabledMarkets = strategy?.mid_market_markets || ['btc-5m'];
-  const isStrategyActive = strategy?.active_strategy === 'mid_market' || strategy?.active_strategy === 'both';
+  const isStrategyActive = strategy?.active_strategies?.includes('mid_market') ?? false;
 
   return (
     <div className="space-y-6">

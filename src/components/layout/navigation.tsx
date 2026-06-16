@@ -79,6 +79,11 @@ export function Navigation() {
       href: ROUTES.STRATEGIES_MID_MARKET,
       icon: TrendingUp,
     },
+    {
+      label: 'Scalp',
+      href: ROUTES.STRATEGIES_SCALP,
+      icon: Shield,
+    },
   ];
 
   const isStrategyActive = strategyItems.some(s => pathname === s.href);

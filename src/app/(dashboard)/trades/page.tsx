@@ -68,12 +68,16 @@ export default function TradesPage() {
     socket.on('mid_market_entry', refetchOnEvent);
     socket.on('mid_market_stop', refetchOnEvent);
     socket.on('mid_market_resolved', refetchOnEvent);
+    socket.on('mid_market_limit_placed', refetchOnEvent);
+    socket.on('mid_market_limit_expired', refetchOnEvent);
 
     return () => {
       socket.off('execution_update');
       socket.off('mid_market_entry', refetchOnEvent);
       socket.off('mid_market_stop', refetchOnEvent);
       socket.off('mid_market_resolved', refetchOnEvent);
+      socket.off('mid_market_limit_placed', refetchOnEvent);
+      socket.off('mid_market_limit_expired', refetchOnEvent);
     };
   }, [socket]);
 
@@ -91,7 +95,7 @@ export default function TradesPage() {
 
     return {
       totalTrades: trades.length,
-      openTrades: trades.filter((t) => t.status === 'OPEN').length,
+      openTrades: trades.filter((t) => t.status === 'OPEN' || t.status === 'LIMIT_PENDING').length,
       winRate: closedTrades.length > 0
         ? (winningTrades.length / closedTrades.length) * 100
         : 0,
@@ -203,7 +207,7 @@ export default function TradesPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs text-text-tertiary">Status:</span>
               <div className="flex gap-1">
-                {(['all', 'OPEN', 'CLOSED_WIN', 'CLOSED_LOSS', 'PENDING'] as const).map((status) => (
+                {(['all', 'OPEN', 'LIMIT_PENDING', 'CLOSED_WIN', 'CLOSED_LOSS', 'PENDING'] as const).map((status) => (
                   <button
                     key={status}
                     onClick={() => setStatusFilter(status)}
@@ -213,7 +217,7 @@ export default function TradesPage() {
                         : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
                     }`}
                   >
-                    {status === 'all' ? 'All' : status.replace('_', ' ')}
+                    {status === 'all' ? 'All' : status === 'LIMIT_PENDING' ? 'Limit Open' : status.replace('_', ' ')}
                   </button>
                 ))}
               </div>

@@ -138,12 +138,17 @@ export function CandlestickChart({
         chartRef.current.timeScale().fitContent();
       }
       isInitialLoadRef.current = false;
-    } else {
+    } else if (chartData.length > 0) {
       // Incremental update: only update the latest candle
       // This preserves zoom and scroll position
+      // Use setData when the incoming data has timestamps that could
+      // conflict with existing series data (stream pushes fast updates)
       const latestCandle = chartData[chartData.length - 1];
-      if (latestCandle) {
+      try {
         candlestickSeriesRef.current.update(latestCandle);
+      } catch {
+        // "Cannot update oldest data" — full reload as fallback
+        candlestickSeriesRef.current.setData(chartData);
       }
     }
 

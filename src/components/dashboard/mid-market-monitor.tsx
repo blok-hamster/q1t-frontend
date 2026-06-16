@@ -195,15 +195,39 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
       if (data.daily_pnl != null) setDailyPnl(q2(data.daily_pnl) ?? 0);
     };
 
+    const limitPlacedHandler = (data: any) => {
+      const mt = data.market_type || 'btc-5m';
+      if (mt !== marketTypeRef.current) return;
+      setPosition({
+        direction: data.direction,
+        entry_price: data.limit_price,
+        shares: data.num_shares || 0,
+        is_limit_pending: true,
+        limit_price: data.limit_price,
+        stop_price: data.stop_price,
+        rr_ratio: data.rr_ratio,
+      });
+    };
+
+    const limitExpiredHandler = (data: any) => {
+      const mt = data.market_type || 'btc-5m';
+      if (mt !== marketTypeRef.current) return;
+      setPosition(null);
+    };
+
     socket.on('mid_market_entry', entryHandler);
     socket.on('mid_market_stop', stopHandler);
     socket.on('mid_market_resolved', resolvedHandler);
+    socket.on('mid_market_limit_placed', limitPlacedHandler);
+    socket.on('mid_market_limit_expired', limitExpiredHandler);
 
     return () => {
       socket.off('mid_market_update', handler);
       socket.off('mid_market_entry', entryHandler);
       socket.off('mid_market_stop', stopHandler);
       socket.off('mid_market_resolved', resolvedHandler);
+      socket.off('mid_market_limit_placed', limitPlacedHandler);
+      socket.off('mid_market_limit_expired', limitExpiredHandler);
     };
   }, [socket]);
 
@@ -280,27 +304,47 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
 
         {/* Position */}
         <div style={{ display: position ? 'block' : 'none' }}>
-          <div className="p-3 border border-accent-primary/30 bg-accent-muted rounded-lg">
+          <div className={`p-3 border rounded-lg ${position?.is_limit_pending ? 'border-neutral/30 bg-neutral/5' : 'border-accent-primary/30 bg-accent-muted'}`}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-accent-primary uppercase tracking-tighter">ACTIVE POSITION</span>
-              {position?.direction === 'UP'
-                ? <TrendingUp className="h-4 w-4 text-positive" />
-                : <TrendingDown className="h-4 w-4 text-negative" />}
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div>
-                <p className="text-text-tertiary text-[10px]">Side</p>
-                <p className="font-bold text-text-primary">{position?.direction ?? '—'}</p>
+              <span className={`text-[10px] font-bold uppercase tracking-tighter ${position?.is_limit_pending ? 'text-neutral' : 'text-accent-primary'}`}>
+                {position?.is_limit_pending ? 'LIMIT ORDER OPEN' : 'ACTIVE POSITION'}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-xs font-bold ${position?.direction === 'UP' ? 'text-positive' : 'text-negative'}`}>
+                  {position?.direction}
+                </span>
+                {position?.direction === 'UP'
+                  ? <TrendingUp className="h-4 w-4 text-positive" />
+                  : <TrendingDown className="h-4 w-4 text-negative" />}
               </div>
+            </div>
+            <div className={`grid gap-2 text-xs ${position?.is_limit_pending ? 'grid-cols-4' : 'grid-cols-3'}`}>
               <div>
-                <p className="text-text-tertiary text-[10px]">Entry</p>
+                <p className="text-text-tertiary text-[10px]">{position?.is_limit_pending ? 'Limit' : 'Entry'}</p>
                 <p className="font-mono font-bold text-text-primary tabular-nums">${position?.entry_price?.toFixed(2) ?? '—'}</p>
               </div>
+              {position?.is_limit_pending && position.stop_price != null && (
+                <div>
+                  <p className="text-text-tertiary text-[10px]">Stop</p>
+                  <p className="font-mono font-bold text-text-primary tabular-nums">${position.stop_price.toFixed(2)}</p>
+                </div>
+              )}
+              {position?.is_limit_pending && position.rr_ratio != null ? (
+                <div>
+                  <p className="text-text-tertiary text-[10px]">R:R</p>
+                  <p className="font-mono font-bold text-positive tabular-nums">{position.rr_ratio.toFixed(2)}</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-text-tertiary text-[10px]">P&L</p>
+                  <p className={`font-mono font-bold tabular-nums ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>
+                    ${pnl.toFixed(2)}
+                  </p>
+                </div>
+              )}
               <div>
-                <p className="text-text-tertiary text-[10px]">P&L</p>
-                <p className={`font-mono font-bold tabular-nums ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>
-                  ${pnl.toFixed(2)}
-                </p>
+                <p className="text-text-tertiary text-[10px]">Shares</p>
+                <p className="font-mono font-bold text-text-primary tabular-nums">{position?.shares ?? '—'}</p>
               </div>
             </div>
           </div>

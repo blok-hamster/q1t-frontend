@@ -29,6 +29,10 @@ export interface MidMarketPosition {
   direction: string;
   entry_price: number;
   shares: number;
+  is_limit_pending?: boolean;
+  limit_price?: number;
+  stop_price?: number;
+  rr_ratio?: number;
 }
 
 export interface MidMarketState {

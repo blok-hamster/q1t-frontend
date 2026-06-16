@@ -14,6 +14,7 @@ export type TradeStrategy = 'ai_prediction' | 'mid_market';
 export type TradeStatus =
   | 'DRAFT'
   | 'PENDING'
+  | 'LIMIT_PENDING'
   | 'OPEN'
   | 'CLOSED_WIN'
   | 'CLOSED_LOSS'
@@ -42,6 +43,13 @@ export interface Trade {
   dispatchedAt: string | null;
   rejectedAt: string | null;
   rejectionReason: string | null;
+  entry_method: 'market' | 'limit_retrace' | null;
+  limit_order_price: number | null;
+  limit_order_placed_at: string | null;
+  limit_order_filled_at: string | null;
+  limit_order_expired: boolean;
+  computed_stop_loss: number | null;
+  computed_rr_ratio: number | null;
   createdAt: string;
   updatedAt: string;
 }

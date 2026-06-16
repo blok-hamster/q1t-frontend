@@ -127,7 +127,7 @@ export default function SettingsPage() {
 
       {/* Strategy Selection */}
       <StrategySelectionPanel
-        initialStrategy={settings?.strategySelection || { active_strategy: 'both', mid_market_markets: ['btc-5m'] }}
+        initialStrategy={settings?.strategySelection || { active_strategies: ['mid_market', 'scalp'], mid_market_markets: ['btc-5m'] }}
         marketConfigs={settings?.marketConfigs || []}
         onUpdate={(newStrategy) => setSettings((prev: any) => ({ ...prev, strategySelection: newStrategy }))}
       />
@@ -138,6 +138,9 @@ export default function SettingsPage() {
           max_bet_pct: 0.05,
           min_confidence: 0.60,
           use_kelly: true,
+          use_adaptive_sizing: false,
+          adaptive_min_shares: 5,
+          adaptive_max_shares: 200,
         }}
         onSave={handleRiskConfigUpdate}
       />

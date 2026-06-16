@@ -14,6 +14,9 @@ interface RiskConfig {
   max_bet_pct: number; // 0.01 to 0.50 (1% to 50%)
   min_confidence: number; // 0.50 to 0.95 (50% to 95%)
   use_kelly: boolean;
+  use_adaptive_sizing: boolean;
+  adaptive_min_shares: number;
+  adaptive_max_shares: number;
 }
 
 interface RiskConfigPanelProps {
@@ -38,6 +41,21 @@ export function RiskConfigPanel({ initialConfig, onSave }: RiskConfigPanelProps)
 
   const handleKellyToggle = (checked: boolean) => {
     setConfig((prev) => ({ ...prev, use_kelly: checked }));
+    setHasChanges(true);
+  };
+
+  const handleAdaptiveSizingToggle = (checked: boolean) => {
+    setConfig((prev) => ({ ...prev, use_adaptive_sizing: checked }));
+    setHasChanges(true);
+  };
+
+  const handleMinSharesChange = (value: number) => {
+    setConfig((prev) => ({ ...prev, adaptive_min_shares: value }));
+    setHasChanges(true);
+  };
+
+  const handleMaxSharesChange = (value: number) => {
+    setConfig((prev) => ({ ...prev, adaptive_max_shares: value }));
     setHasChanges(true);
   };
 
@@ -171,6 +189,74 @@ export function RiskConfigPanel({ initialConfig, onSave }: RiskConfigPanelProps)
           </div>
         </div>
 
+        {/* Adaptive Position Sizing */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg">
+            <div className="flex-1">
+              <label className="text-sm font-medium text-text-primary block mb-1">
+                Adaptive Position Sizing
+              </label>
+              <p className="text-xs text-text-tertiary">
+                Automatically scale position size using Kelly edge, market volatility, and balance. Sizes up on high-winrate markets, sizes down in volatile conditions.
+              </p>
+            </div>
+            <Switch
+              checked={config.use_adaptive_sizing}
+              onChange={handleAdaptiveSizingToggle}
+            />
+          </div>
+
+          {config.use_adaptive_sizing && (
+            <div className="ml-4 space-y-4 p-4 border border-border rounded-lg">
+              {/* Min Shares */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-text-primary">
+                    Minimum Shares
+                  </label>
+                  <span className="text-sm font-mono font-semibold text-accent-primary">
+                    {config.adaptive_min_shares}
+                  </span>
+                </div>
+                <Slider
+                  min={1}
+                  max={50}
+                  step={1}
+                  value={config.adaptive_min_shares}
+                  onChange={handleMinSharesChange}
+                  formatValue={(value) => `${value} shares`}
+                />
+                <p className="text-xs text-text-tertiary">
+                  Floor — never size below this even if Kelly suggests less
+                </p>
+              </div>
+
+              {/* Max Shares */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-text-primary">
+                    Maximum Shares
+                  </label>
+                  <span className="text-sm font-mono font-semibold text-accent-primary">
+                    {config.adaptive_max_shares}
+                  </span>
+                </div>
+                <Slider
+                  min={20}
+                  max={500}
+                  step={10}
+                  value={config.adaptive_max_shares}
+                  onChange={handleMaxSharesChange}
+                  formatValue={(value) => `${value} shares`}
+                />
+                <p className="text-xs text-text-tertiary">
+                  Ceiling — never size above this regardless of edge
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Current Settings Preview */}
         <div className="p-4 bg-accent-muted border border-accent-primary/30 rounded-lg">
           <p className="text-xs font-semibold text-accent-primary uppercase tracking-wide mb-3">
@@ -189,6 +275,22 @@ export function RiskConfigPanel({ initialConfig, onSave }: RiskConfigPanelProps)
                 {(config.min_confidence * 100).toFixed(0)}%
               </p>
             </div>
+            {config.use_adaptive_sizing && (
+              <>
+                <div>
+                  <p className="text-text-tertiary text-xs mb-1">Adaptive range:</p>
+                  <p className="font-mono font-semibold text-text-primary">
+                    {config.adaptive_min_shares} - {config.adaptive_max_shares} shares
+                  </p>
+                </div>
+                <div>
+                  <p className="text-text-tertiary text-xs mb-1">Sizing method:</p>
+                  <p className="font-mono font-semibold text-text-primary">
+                    Kelly + Vol scaling
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </CardBody>

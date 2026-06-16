@@ -34,8 +34,8 @@ export default function PredictionsPage() {
         if (predData?.prediction) {
           setCurrentSignal(predData.prediction);
         }
-        const strategy = settingsData.strategySelection?.active_strategy;
-        setStrategyActive(strategy === 'prediction' || strategy === 'both');
+        const strategies = settingsData.strategySelection?.active_strategies || [];
+        setStrategyActive(strategies.includes('prediction'));
       } catch (error) {
         console.error('Failed to load prediction data:', error);
       } finally {

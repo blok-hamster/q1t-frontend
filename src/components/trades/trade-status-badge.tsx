@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { TRADE_STATUS_LABELS, TRADE_STATUS_COLORS } from '@/lib/constants';
 import type { TradeStatus } from '@/types/trade';
-import { CheckCircle2, XCircle, Clock, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Loader2, AlertCircle, Target } from 'lucide-react';
 
 interface TradeStatusBadgeProps {
   status: TradeStatus;
@@ -24,6 +24,8 @@ export function TradeStatusBadge({ status, size = 'md' }: TradeStatusBadgeProps)
         return <Clock className="h-3 w-3" />;
       case 'PENDING':
         return <Loader2 className="h-3 w-3 animate-spin" />;
+      case 'LIMIT_PENDING':
+        return <Target className="h-3 w-3" />;
       case 'REJECTED':
         return <AlertCircle className="h-3 w-3" />;
       default:
