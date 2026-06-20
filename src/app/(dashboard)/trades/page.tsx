@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSocket } from '@/context/socket-context';
 import { executionApi } from '@/lib/api';
 import { Card } from '@/components/ui/card';
@@ -17,12 +17,16 @@ import {
   DollarSign,
   Search,
   SlidersHorizontal,
+  Loader2,
 } from 'lucide-react';
 
 export default function TradesPage() {
   const { socket } = useSocket();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TradeStatus | 'all'>('all');
   const [directionFilter, setDirectionFilter] = useState<TradeDirection | 'all'>('all');
@@ -30,28 +34,37 @@ export default function TradesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Fetch trades on mount
-  useEffect(() => {
-    const fetchTrades = async () => {
-      try {
-        const { trades: fetchedTrades } = await executionApi.getTrades();
-        setTrades(fetchedTrades);
-      } catch (error) {
-        console.error('Failed to fetch trades:', error);
-      } finally {
-        setLoading(false);
+  const fetchTrades = useCallback(async (cursor?: string) => {
+    try {
+      const result = await executionApi.getTrades({ cursor, limit: 50 });
+      if (cursor) {
+        setTrades(prev => [...prev, ...result.trades]);
+      } else {
+        setTrades(result.trades);
       }
-    };
-
-    fetchTrades();
+      setHasMore(result.hasMore ?? false);
+      setNextCursor(result.nextCursor ?? null);
+    } catch (error) {
+      console.error('Failed to fetch trades:', error);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchTrades().finally(() => setLoading(false));
+  }, [fetchTrades]);
+
+  const handleLoadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    await fetchTrades(nextCursor);
+    setLoadingMore(false);
+  };
 
   // Listen for trade updates via WebSocket
   useEffect(() => {
     if (!socket) return;
 
     socket.on('execution_update', (update: ExecutionUpdate) => {
-      console.log('💼 Trade Update:', update);
       setTrades((prev) =>
         prev.map((trade) =>
           trade._id === update.trade_id
@@ -61,25 +74,26 @@ export default function TradesPage() {
       );
     });
 
-    // Refetch trades when mid-market events happen (new trades created/resolved)
     const refetchOnEvent = () => {
-      executionApi.getTrades().then(({ trades: fresh }) => setTrades(fresh)).catch(() => {});
+      fetchTrades();
     };
     socket.on('mid_market_entry', refetchOnEvent);
     socket.on('mid_market_stop', refetchOnEvent);
     socket.on('mid_market_resolved', refetchOnEvent);
-    socket.on('mid_market_limit_placed', refetchOnEvent);
     socket.on('mid_market_limit_expired', refetchOnEvent);
+    socket.on('scalp_entry', refetchOnEvent);
+    socket.on('scalp_exit', refetchOnEvent);
 
     return () => {
       socket.off('execution_update');
       socket.off('mid_market_entry', refetchOnEvent);
       socket.off('mid_market_stop', refetchOnEvent);
       socket.off('mid_market_resolved', refetchOnEvent);
-      socket.off('mid_market_limit_placed', refetchOnEvent);
       socket.off('mid_market_limit_expired', refetchOnEvent);
+      socket.off('scalp_entry', refetchOnEvent);
+      socket.off('scalp_exit', refetchOnEvent);
     };
-  }, [socket]);
+  }, [socket, fetchTrades]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -107,22 +121,15 @@ export default function TradesPage() {
   // Filter and search trades
   const filteredTrades = useMemo(() => {
     return trades.filter((trade) => {
-      // Status filter
       if (statusFilter !== 'all' && trade.status !== statusFilter) {
         return false;
       }
-
-      // Direction filter
       if (directionFilter !== 'all' && trade.direction !== directionFilter) {
         return false;
       }
-
-      // Strategy filter
       if (strategyFilter !== 'all' && (trade.strategy || 'ai_prediction') !== strategyFilter) {
         return false;
       }
-
-      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
@@ -130,7 +137,6 @@ export default function TradesPage() {
           trade._id.toLowerCase().includes(query)
         );
       }
-
       return true;
     });
   }, [trades, statusFilter, directionFilter, strategyFilter, searchQuery]);
@@ -210,7 +216,7 @@ export default function TradesPage() {
                 {(['all', 'OPEN', 'LIMIT_PENDING', 'CLOSED_WIN', 'CLOSED_LOSS', 'PENDING'] as const).map((status) => (
                   <button
                     key={status}
-                    onClick={() => setStatusFilter(status)}
+                    onClick={() => { setStatusFilter(status); setCurrentPage(1); }}
                     className={`px-3 py-1 text-xs rounded-md transition-colors ${
                       statusFilter === status
                         ? 'bg-accent-primary text-bg-primary'
@@ -230,7 +236,7 @@ export default function TradesPage() {
                 {(['all', 'UP', 'DOWN'] as const).map((direction) => (
                   <button
                     key={direction}
-                    onClick={() => setDirectionFilter(direction)}
+                    onClick={() => { setDirectionFilter(direction); setCurrentPage(1); }}
                     className={`px-3 py-1 text-xs rounded-md transition-colors ${
                       directionFilter === direction
                         ? 'bg-accent-primary text-bg-primary'
@@ -247,17 +253,17 @@ export default function TradesPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs text-text-tertiary">Strategy:</span>
               <div className="flex gap-1">
-                {(['all', 'ai_prediction', 'mid_market'] as const).map((strategy) => (
+                {(['all', 'ai_prediction', 'mid_market', 'scalp'] as const).map((strategy) => (
                   <button
                     key={strategy}
-                    onClick={() => setStrategyFilter(strategy)}
+                    onClick={() => { setStrategyFilter(strategy); setCurrentPage(1); }}
                     className={`px-3 py-1 text-xs rounded-md transition-colors ${
                       strategyFilter === strategy
                         ? 'bg-accent-primary text-bg-primary'
                         : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
                     }`}
                   >
-                    {strategy === 'all' ? 'All' : strategy === 'ai_prediction' ? 'AI' : 'Mid-Market'}
+                    {strategy === 'all' ? 'All' : strategy === 'ai_prediction' ? 'AI' : strategy === 'mid_market' ? 'Mid-Market' : 'Scalp'}
                   </button>
                 ))}
               </div>
@@ -366,6 +372,26 @@ export default function TradesPage() {
               </button>
             </div>
           )}
+
+          {/* Load More */}
+          {hasMore && (
+            <div className="mt-4 pt-4 border-t border-border text-center">
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="px-6 py-2.5 text-sm font-medium text-text-primary bg-bg-tertiary rounded-lg hover:bg-bg-tertiary/80 disabled:opacity-50 transition-colors inline-flex items-center gap-2"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  'Load More Trades'
+                )}
+              </button>
+            </div>
+          )}
         </Card>
       ) : (
         <Card padding="lg">
@@ -377,7 +403,7 @@ export default function TradesPage() {
             <p className="text-text-secondary">
               {searchQuery || statusFilter !== 'all' || directionFilter !== 'all'
                 ? 'Try adjusting your filters'
-                : 'Trades will appear here when the AI places them'}
+                : 'Trades will appear here when positions are opened'}
             </p>
           </div>
         </Card>

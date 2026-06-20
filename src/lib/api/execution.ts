@@ -47,10 +47,15 @@ export interface ScalpDailyStats {
  */
 export const executionApi = {
   /**
-   * Get trade history/ledger
+   * Get trade history/ledger with optional cursor pagination
    */
-  getTrades: async (): Promise<TradeLedger> => {
-    return api.get<TradeLedger>(API_ENDPOINTS.EXECUTION_LEDGER);
+  getTrades: async (params?: { cursor?: string; limit?: number; strategy?: string }): Promise<TradeLedger> => {
+    const query = new URLSearchParams();
+    if (params?.cursor) query.set('cursor', params.cursor);
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.strategy) query.set('strategy', params.strategy);
+    const qs = query.toString();
+    return api.get<TradeLedger>(`${API_ENDPOINTS.EXECUTION_LEDGER}${qs ? `?${qs}` : ''}`);
   },
 
   /**

@@ -177,4 +177,22 @@ export const settingsApi = {
   ): Promise<{ message: string; marketConfig: MarketConfig }> => {
     return api.put(API_ENDPOINTS.SETTINGS_MARKET(marketType), config);
   },
+
+  /**
+   * Update paper trading balance
+   */
+  updatePaperBalance: async (
+    balance: number
+  ): Promise<{ paperBalance: number }> => {
+    return api.put(`${API_ENDPOINTS.SETTINGS}/paper-balance`, { balance });
+  },
+
+  /**
+   * Reset paper trading balance
+   */
+  resetPaperBalance: async (
+    amount?: number
+  ): Promise<{ paperBalance: number }> => {
+    return api.post(`${API_ENDPOINTS.SETTINGS}/paper-balance/reset`, { amount });
+  },
 };

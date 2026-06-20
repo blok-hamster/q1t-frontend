@@ -6,7 +6,7 @@ export type TradeDirection = 'UP' | 'DOWN';
 /**
  * Trade strategy
  */
-export type TradeStrategy = 'ai_prediction' | 'mid_market';
+export type TradeStrategy = 'ai_prediction' | 'mid_market' | 'mid_market_fade' | 'scalp';
 
 /**
  * Trade status
@@ -59,6 +59,8 @@ export interface Trade {
  */
 export interface TradeLedger {
   trades: Trade[];
+  hasMore?: boolean;
+  nextCursor?: string | null;
 }
 
 /**

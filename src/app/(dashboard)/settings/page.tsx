@@ -9,6 +9,7 @@ import { SecuritySettings } from '@/components/settings/security-settings';
 import { PrivateKeySetup } from '@/components/settings/private-key-setup';
 import { TradingToggle } from '@/components/settings/trading-toggle';
 import { AutoClaimToggle } from '@/components/settings/auto-claim-toggle';
+import { PaperBalancePanel } from '@/components/settings/paper-balance-panel';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Loading } from '@/components/ui/loading';
 import { toast } from '@/context/toast-context';
@@ -123,6 +124,12 @@ export default function SettingsPage() {
         initialEnabled={settings?.auto_claim ?? true}
         hasPrivateKey={settings?.hasPrivateKey || false}
         onUpdate={handleSecurityUpdate}
+      />
+
+      {/* Paper Trading Balance */}
+      <PaperBalancePanel
+        initialBalance={settings?.paperBalance ?? 1000}
+        onUpdate={(newBalance) => setSettings((prev: any) => ({ ...prev, paperBalance: newBalance }))}
       />
 
       {/* Strategy Selection */}

@@ -195,21 +195,21 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
       if (data.daily_pnl != null) setDailyPnl(q2(data.daily_pnl) ?? 0);
     };
 
-    const limitPlacedHandler = (data: any) => {
+    const retraceWatchingHandler = (data: any) => {
       const mt = data.market_type || 'btc-5m';
       if (mt !== marketTypeRef.current) return;
       setPosition({
         direction: data.direction,
-        entry_price: data.limit_price,
+        entry_price: data.target_price,
         shares: data.num_shares || 0,
         is_limit_pending: true,
-        limit_price: data.limit_price,
+        limit_price: data.target_price,
         stop_price: data.stop_price,
         rr_ratio: data.rr_ratio,
       });
     };
 
-    const limitExpiredHandler = (data: any) => {
+    const retraceExpiredHandler = (data: any) => {
       const mt = data.market_type || 'btc-5m';
       if (mt !== marketTypeRef.current) return;
       setPosition(null);
@@ -218,16 +218,16 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
     socket.on('mid_market_entry', entryHandler);
     socket.on('mid_market_stop', stopHandler);
     socket.on('mid_market_resolved', resolvedHandler);
-    socket.on('mid_market_limit_placed', limitPlacedHandler);
-    socket.on('mid_market_limit_expired', limitExpiredHandler);
+    socket.on('mid_market_retrace_watching', retraceWatchingHandler);
+    socket.on('mid_market_limit_expired', retraceExpiredHandler);
 
     return () => {
       socket.off('mid_market_update', handler);
       socket.off('mid_market_entry', entryHandler);
       socket.off('mid_market_stop', stopHandler);
       socket.off('mid_market_resolved', resolvedHandler);
-      socket.off('mid_market_limit_placed', limitPlacedHandler);
-      socket.off('mid_market_limit_expired', limitExpiredHandler);
+      socket.off('mid_market_retrace_watching', retraceWatchingHandler);
+      socket.off('mid_market_limit_expired', retraceExpiredHandler);
     };
   }, [socket]);
 
@@ -307,7 +307,7 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
           <div className={`p-3 border rounded-lg ${position?.is_limit_pending ? 'border-neutral/30 bg-neutral/5' : 'border-accent-primary/30 bg-accent-muted'}`}>
             <div className="flex items-center justify-between mb-2">
               <span className={`text-[10px] font-bold uppercase tracking-tighter ${position?.is_limit_pending ? 'text-neutral' : 'text-accent-primary'}`}>
-                {position?.is_limit_pending ? 'LIMIT ORDER OPEN' : 'ACTIVE POSITION'}
+                {position?.is_limit_pending ? 'RETRACE WATCHING' : 'ACTIVE POSITION'}
               </span>
               <div className="flex items-center gap-1.5">
                 <span className={`text-xs font-bold ${position?.direction === 'UP' ? 'text-positive' : 'text-negative'}`}>
