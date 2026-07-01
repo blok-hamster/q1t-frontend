@@ -36,7 +36,7 @@ function isDistanceSignificant(asset: string, value: number): boolean {
 interface PositionInfo {
   direction: string;
   entry_price: number;
-  strategy: 'mid_market' | 'scalp' | 'prediction';
+  strategy: 'mid_market' | 'scalp' | 'ai_prediction_v2';
   num_shares?: number;
   stop_price?: number;
   take_profit_price?: number;
@@ -149,9 +149,9 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
           }
 
           // Open prediction trades (only if AI strategy enabled)
-          if (enabled.includes('ai_prediction')) {
+          if (enabled.includes('ai_prediction_v2')) {
             const openPredictions = tradesData.trades.filter(
-              (t: any) => t.strategy === 'ai_prediction' && t.status === 'OPEN'
+              (t: any) => t.strategy === 'ai_prediction_v2' && t.status === 'OPEN'
             );
             for (const trade of openPredictions) {
               const mt = deriveMarketType(trade.market_slug);
@@ -161,7 +161,7 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
                   position: {
                     direction: trade.direction,
                     entry_price: trade.execution_price || trade.entry_share_price || 0,
-                    strategy: 'prediction',
+                    strategy: 'ai_prediction_v2',
                     num_shares: trade.num_shares ?? undefined,
                   },
                   lastEvent: Date.now(),
@@ -337,7 +337,7 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
     // Prediction / AI signal — lights up when execution dispatched
     const predictionEntryHandler = (data: any) => {
       if (!data.market_slug) return;
-      if (!strategiesRef.current.includes('ai_prediction')) return;
+      if (!strategiesRef.current.includes('ai_prediction_v2')) return;
       const mt = deriveMarketType(data.market_slug);
       if (!mt || !marketsRef.current[mt]) return;
       setMarkets(prev => ({
@@ -347,7 +347,7 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
           position: {
             direction: data.direction,
             entry_price: data.entry_price || data.strike_price || 0,
-            strategy: 'prediction',
+            strategy: 'ai_prediction_v2',
             num_shares: data.num_shares,
           },
           lastEvent: Date.now(),
@@ -357,14 +357,14 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
 
     // Execution update — clear prediction position on terminal status
     const executionUpdateHandler = (data: any) => {
-      if (!data.strategy || data.strategy !== 'ai_prediction') return;
+      if (!data.strategy || data.strategy !== 'ai_prediction_v2') return;
       if (!data.market_slug) return;
       const mt = deriveMarketType(data.market_slug);
       if (!mt || !marketsRef.current[mt]) return;
       const terminal = ['CLOSED_WIN', 'CLOSED_LOSS', 'REJECTED'].includes(data.status);
       if (terminal) {
         setMarkets(prev => {
-          if (prev[mt].position?.strategy !== 'prediction') return prev;
+          if (prev[mt].position?.strategy !== 'ai_prediction_v2') return prev;
           return { ...prev, [mt]: { ...prev[mt], position: null, lastEvent: Date.now() } };
         });
       }
@@ -529,7 +529,7 @@ function MarketRow({ market, state }: { market: typeof ALL_MARKETS[0]; state: Ma
           <div className="flex items-center gap-1 ml-1">
             <StrategyBadge strategy="mid_market" active={activeStrategy === 'mid_market'} />
             <StrategyBadge strategy="scalp" active={activeStrategy === 'scalp'} />
-            <StrategyBadge strategy="prediction" active={activeStrategy === 'prediction'} />
+            <StrategyBadge strategy="ai_prediction_v2" active={activeStrategy === 'ai_prediction_v2'} />
           </div>
         </div>
 
@@ -612,7 +612,7 @@ function StrategyBadge({ strategy, active }: { strategy: string; active: boolean
           SCALP
         </span>
       );
-    case 'prediction':
+    case 'ai_prediction_v2':
       return (
         <span className={`${base} ${active ? 'bg-purple-500/20 text-purple-400' : 'bg-bg-secondary/50 text-text-tertiary/40'}`}>
           <Brain className="h-2.5 w-2.5" />

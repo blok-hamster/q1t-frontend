@@ -570,11 +570,21 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-xs text-text-secondary">Max Daily</label>
-                      <span className="text-xs font-mono text-text-primary">{config.max_daily_trades}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={config.max_daily_trades}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value);
+                          if (!isNaN(v) && v >= 1) update('max_daily_trades', v);
+                        }}
+                        className="w-20 px-2 py-1 text-right text-xs font-mono bg-bg-tertiary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-primary"
+                      />
                     </div>
                     <Slider
                       min={1}
-                      max={500}
+                      max={Math.max(500, config.max_daily_trades)}
                       step={10}
                       value={config.max_daily_trades}
                       onChange={(v) => update('max_daily_trades', v)}
@@ -584,11 +594,21 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-xs text-text-secondary">Max Concurrent</label>
-                      <span className="text-xs font-mono text-text-primary">{config.max_concurrent}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={config.max_concurrent}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value);
+                          if (!isNaN(v) && v >= 1) update('max_concurrent', v);
+                        }}
+                        className="w-16 px-2 py-1 text-right text-xs font-mono bg-bg-tertiary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-primary"
+                      />
                     </div>
                     <Slider
                       min={1}
-                      max={5}
+                      max={Math.max(10, config.max_concurrent)}
                       step={1}
                       value={config.max_concurrent}
                       onChange={(v) => update('max_concurrent', v)}

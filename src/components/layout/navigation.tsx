@@ -22,6 +22,7 @@ import {
   Users,
   Send,
   Target,
+  Cpu,
   ChevronDown,
   Layers,
 } from 'lucide-react';
@@ -69,6 +70,11 @@ export function Navigation() {
   ];
 
   const strategyItems = [
+    {
+      label: 'AI Prediction',
+      href: ROUTES.STRATEGIES_AI_PREDICTION,
+      icon: Cpu,
+    },
     {
       label: 'Predictions',
       href: ROUTES.STRATEGIES_PREDICTIONS,

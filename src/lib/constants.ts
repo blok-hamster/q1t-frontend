@@ -49,6 +49,8 @@ export const API_ENDPOINTS = {
   SETTINGS_STRATEGY: '/api/settings/strategy',
   SETTINGS_MARKETS: '/api/settings/markets',
   SETTINGS_MARKET: (marketType: string) => `/api/settings/markets/${marketType}`,
+  SETTINGS_AI_V2: '/api/settings/ai-v2',
+  SETTINGS_AI_V2_MARKET: (marketType: string) => `/api/settings/ai-v2/${marketType}`,
   MARKETS_AVAILABLE: '/api/market/available',
   MARKET_STATUS: (marketType: string) => `/api/market/${marketType}/status`,
 
@@ -89,6 +91,9 @@ export const WS_EVENTS = {
 
   // Server -> Client
   AI_SIGNAL_UPDATE: 'ai_signal_update',
+  AI_V2_SIGNAL: 'ai_v2_signal',
+  AI_V2_EXIT: 'ai_v2_exit',
+  TRADE_RESOLUTION: 'trade_resolution',
   EXECUTION_UPDATE: 'execution_update',
   CHART_UPDATE: 'chart_update',
   MID_MARKET_UPDATE: 'mid_market_update',
@@ -268,6 +273,7 @@ export const ROUTES = {
   SETUP_2FA: '/setup-2fa',
   DASHBOARD: '/dashboard',
   STRATEGIES_PREDICTIONS: '/strategies/predictions',
+  STRATEGIES_AI_PREDICTION: '/strategies/ai-prediction',
   STRATEGIES_MID_MARKET: '/strategies/mid-market',
   STRATEGIES_SCALP: '/strategies/scalp',
   PORTFOLIO: '/portfolio',
@@ -286,6 +292,7 @@ export const ROUTES = {
  */
 export const PROTECTED_ROUTES = [
   ROUTES.DASHBOARD,
+  ROUTES.STRATEGIES_AI_PREDICTION,
   ROUTES.STRATEGIES_PREDICTIONS,
   ROUTES.STRATEGIES_MID_MARKET,
   ROUTES.STRATEGIES_SCALP,

@@ -35,7 +35,7 @@ export default function PredictionsPage() {
           setCurrentSignal(predData.prediction);
         }
         const strategies = settingsData.strategySelection?.active_strategies || [];
-        setStrategyActive(strategies.includes('prediction'));
+        setStrategyActive(strategies.includes('ai_prediction_v2'));
       } catch (error) {
         console.error('Failed to load prediction data:', error);
       } finally {

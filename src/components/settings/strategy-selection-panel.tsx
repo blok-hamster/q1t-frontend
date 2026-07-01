@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { settingsApi } from '@/lib/api';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { toast } from '@/context/toast-context';
 import { Target, TrendingUp, Zap, Shield } from 'lucide-react';
-import type { StrategySelection, MarketConfig } from '@/types/api';
+import type { StrategySelection, MarketConfig, AiV2Config } from '@/types/api';
 import { cn } from '@/lib/utils/cn';
 
 const SUPPORTED_MARKETS = [
@@ -21,9 +21,9 @@ const SUPPORTED_MARKETS = [
 
 const STRATEGIES = [
   {
-    value: 'prediction',
-    label: 'Prediction',
-    description: 'AI predicts direction at market open',
+    value: 'ai_prediction_v2',
+    label: 'AI Prediction',
+    description: 'Classifier-driven entry with dynamic TP/SL across all markets',
     icon: Target,
   },
   {
@@ -49,6 +49,19 @@ interface Props {
 export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdate }: Props) {
   const [strategy, setStrategy] = useState<StrategySelection>(initialStrategy);
   const [saving, setSaving] = useState(false);
+  const [aiV2Configs, setAiV2Configs] = useState<AiV2Config[]>([]);
+
+  const activeStrategies = strategy.active_strategies || [];
+  const showMidMarketMarkets = activeStrategies.includes('mid_market') || activeStrategies.includes('scalp');
+  const showAiV2Markets = activeStrategies.includes('ai_prediction_v2');
+
+  useEffect(() => {
+    if (showAiV2Markets) {
+      settingsApi.getAiV2Configs().then(resp => {
+        setAiV2Configs(resp.aiV2Configs || []);
+      }).catch(() => {});
+    }
+  }, [showAiV2Markets]);
 
   const handleStrategyToggle = async (value: string) => {
     const current = strategy.active_strategies || [];
@@ -91,8 +104,28 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
     }
   };
 
-  const activeStrategies = strategy.active_strategies || [];
-  const showMarketSelection = activeStrategies.includes('mid_market') || activeStrategies.includes('scalp');
+  const handleAiV2MarketToggle = async (marketId: string) => {
+    const existing = aiV2Configs.find(c => c.market_type === marketId);
+    const newEnabled = !existing?.enabled;
+
+    setSaving(true);
+    try {
+      const resp = await settingsApi.updateAiV2Config(marketId, { enabled: newEnabled });
+      setAiV2Configs(prev => {
+        const idx = prev.findIndex(c => c.market_type === marketId);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = resp.aiV2Config;
+          return updated;
+        }
+        return [...prev, resp.aiV2Config];
+      });
+    } catch (error) {
+      toast.error('Failed to update AI market selection');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Card padding="lg">
@@ -147,10 +180,43 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
           </p>
         )}
 
-        {showMarketSelection && (
+        {showAiV2Markets && (
           <div className="mt-6 pt-4 border-t border-border">
             <p className="text-sm font-medium text-text-primary mb-3">
-              Enabled Markets
+              AI Prediction Markets
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {SUPPORTED_MARKETS.map((m) => {
+                const config = aiV2Configs.find(c => c.market_type === m.id);
+                const isEnabled = config?.enabled ?? false;
+
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => handleAiV2MarketToggle(m.id)}
+                    disabled={saving}
+                    className={cn(
+                      'px-3 py-2 rounded-md border text-sm font-medium transition-colors',
+                      isEnabled
+                        ? 'border-purple-500 bg-purple-500/10 text-purple-400'
+                        : 'border-border text-text-secondary hover:border-text-tertiary'
+                    )}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-text-tertiary mt-2">
+              Select which markets the AI strategy trades
+            </p>
+          </div>
+        )}
+
+        {showMidMarketMarkets && (
+          <div className="mt-6 pt-4 border-t border-border">
+            <p className="text-sm font-medium text-text-primary mb-3">
+              Mid-Market & Scalp Markets
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {SUPPORTED_MARKETS.map((m) => {

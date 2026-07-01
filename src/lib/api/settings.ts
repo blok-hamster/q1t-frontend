@@ -8,6 +8,7 @@ import type {
   MidMarketConfigUpdateResponse,
   StrategySelection,
   MarketConfig,
+  AiV2Config,
 } from '@/types/api';
 
 /**
@@ -194,5 +195,34 @@ export const settingsApi = {
     amount?: number
   ): Promise<{ paperBalance: number }> => {
     return api.post(`${API_ENDPOINTS.SETTINGS}/paper-balance/reset`, { amount });
+  },
+
+  /**
+   * Get all AI V2 per-market configs
+   */
+  getAiV2Configs: async (): Promise<{
+    aiV2Configs: AiV2Config[];
+    supportedMarkets: string[];
+  }> => {
+    return api.get(API_ENDPOINTS.SETTINGS_AI_V2);
+  },
+
+  /**
+   * Get single AI V2 market config
+   */
+  getAiV2Config: async (
+    marketType: string
+  ): Promise<{ aiV2Config: AiV2Config | null; market_type?: string }> => {
+    return api.get(API_ENDPOINTS.SETTINGS_AI_V2_MARKET(marketType));
+  },
+
+  /**
+   * Update single AI V2 market config
+   */
+  updateAiV2Config: async (
+    marketType: string,
+    config: Partial<AiV2Config>
+  ): Promise<{ message: string; aiV2Config: AiV2Config }> => {
+    return api.put(API_ENDPOINTS.SETTINGS_AI_V2_MARKET(marketType), config);
   },
 };

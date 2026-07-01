@@ -6,7 +6,7 @@ export type TradeDirection = 'UP' | 'DOWN';
 /**
  * Trade strategy
  */
-export type TradeStrategy = 'ai_prediction' | 'mid_market' | 'mid_market_fade' | 'scalp';
+export type TradeStrategy = 'ai_prediction' | 'ai_prediction_v2' | 'mid_market' | 'mid_market_fade' | 'scalp';
 
 /**
  * Trade status
@@ -50,6 +50,9 @@ export interface Trade {
   limit_order_expired: boolean;
   computed_stop_loss: number | null;
   computed_rr_ratio: number | null;
+  classifier_confidence: number | null;
+  classifier_source: string | null;
+  exit_reason: 'TP_HIT' | 'SL_HIT' | 'WINDOW_END' | null;
   createdAt: string;
   updatedAt: string;
 }

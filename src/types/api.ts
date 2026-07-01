@@ -80,6 +80,7 @@ export interface SettingsResponse {
   midMarketConfig: MidMarketConfig;
   strategySelection: StrategySelection;
   marketConfigs: MarketConfig[];
+  aiV2Configs: AiV2Config[];
   isActive: boolean;
   hasPrivateKey: boolean;
   wallet_address: string | null;
@@ -148,6 +149,22 @@ export interface MarketConfig {
   scalp_sl_pct?: number;
   scalp_min_sl_delta?: number;
   scalp_min_rr?: number;
+}
+
+export interface AiV2Config {
+  market_type: string;
+  enabled: boolean;
+  entry_price_min: number;
+  entry_price_max: number;
+  take_profit_price: number;
+  stop_loss_delta: number;
+  min_stop_floor: number;
+  num_shares: number;
+  max_daily_trades: number;
+  max_concurrent: number;
+  cooldown_after_loss_seconds: number;
+  sl_debounce_ticks: number;
+  exit_before_end_seconds: number;
 }
 
 export interface RiskConfig {

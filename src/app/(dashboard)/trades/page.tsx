@@ -127,7 +127,7 @@ export default function TradesPage() {
       if (directionFilter !== 'all' && trade.direction !== directionFilter) {
         return false;
       }
-      if (strategyFilter !== 'all' && (trade.strategy || 'ai_prediction') !== strategyFilter) {
+      if (strategyFilter !== 'all' && (trade.strategy || 'ai_prediction_v2') !== strategyFilter) {
         return false;
       }
       if (searchQuery) {
@@ -253,7 +253,7 @@ export default function TradesPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs text-text-tertiary">Strategy:</span>
               <div className="flex gap-1">
-                {(['all', 'ai_prediction', 'mid_market', 'scalp'] as const).map((strategy) => (
+                {(['all', 'ai_prediction_v2', 'mid_market', 'scalp'] as const).map((strategy) => (
                   <button
                     key={strategy}
                     onClick={() => { setStrategyFilter(strategy); setCurrentPage(1); }}
@@ -263,7 +263,7 @@ export default function TradesPage() {
                         : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
                     }`}
                   >
-                    {strategy === 'all' ? 'All' : strategy === 'ai_prediction' ? 'AI' : strategy === 'mid_market' ? 'Mid-Market' : 'Scalp'}
+                    {strategy === 'all' ? 'All' : strategy === 'ai_prediction_v2' ? 'AI' : strategy === 'mid_market' ? 'Mid-Market' : 'Scalp'}
                   </button>
                 ))}
               </div>
