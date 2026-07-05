@@ -81,6 +81,7 @@ const DEFAULT_CONFIG: MarketConfig = {
   min_rr_ratio: 0.75,
   retrace_entry_enabled: false,
   limit_entry_price: 0.70,
+  fok_buffer_cents: 0.03,
 };
 
 function getTimeframeDefaults(marketType: string): Partial<MarketConfig> {
@@ -558,6 +559,26 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
                     />
                   </div>
                 )}
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">FOK Price Buffer</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      ${(config.fok_buffer_cents ?? 0.03).toFixed(2)}
+                    </span>
+                  </div>
+                  <Slider
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={(config.fok_buffer_cents ?? 0.03) * 100}
+                    onChange={(v) => update('fok_buffer_cents', v / 100)}
+                    formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Extra cents above ask for FOK orders — higher = more fills, lower = less overpay
+                  </p>
+                </div>
               </div>
 
               {/* Limits */}

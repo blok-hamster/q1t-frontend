@@ -132,6 +132,8 @@ export interface MarketConfig {
   // Retrace limit entry
   retrace_entry_enabled?: boolean;
   limit_entry_price?: number;
+  // FOK limit price buffer
+  fok_buffer_cents?: number;
   // Scalp strategy
   scalp_enabled?: boolean;
   scalp_max_entry?: number;
