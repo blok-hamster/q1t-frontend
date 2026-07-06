@@ -79,6 +79,7 @@ const DEFAULT_CONFIG: MarketConfig = {
   target_rr_ratio: 1.0,
   min_stop_floor: 0.50,
   min_rr_ratio: 0.75,
+  stop_loss_debounce_ticks: 3,
   retrace_entry_enabled: false,
   limit_entry_price: 0.70,
   fok_buffer_cents: 0.03,
@@ -450,6 +451,26 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
                     onChange={(v) => update('cooldown_after_stop_seconds', v)}
                     formatValue={(v) => fmtTime(v)}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Stop-Loss Debounce Ticks</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      {config.stop_loss_debounce_ticks ?? 3}
+                    </span>
+                  </div>
+                  <Slider
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={config.stop_loss_debounce_ticks ?? 3}
+                    onChange={(v) => update('stop_loss_debounce_ticks', v)}
+                    formatValue={(v) => `${v}`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Consecutive ticks below stop before triggering — higher = more whipsaw tolerance
+                  </p>
                 </div>
               </div>
 

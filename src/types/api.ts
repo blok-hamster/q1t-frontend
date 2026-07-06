@@ -129,6 +129,8 @@ export interface MarketConfig {
   target_rr_ratio?: number;
   min_stop_floor?: number;
   min_rr_ratio?: number;
+  // Stop-loss debounce
+  stop_loss_debounce_ticks?: number;
   // Retrace limit entry
   retrace_entry_enabled?: boolean;
   limit_entry_price?: number;
