@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { formatCurrency, formatPercent, getPnLColor } from '@/lib/utils/format';
+import { formatCurrency, formatPercent } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -14,49 +14,48 @@ interface PriceTickerProps {
 export function PriceTicker({ price, change24h, className }: PriceTickerProps) {
   const [flashClass, setFlashClass] = useState('');
 
-  // Flash effect when price changes
   useEffect(() => {
-    setFlashClass('bg-accent-primary/20');
+    setFlashClass('bg-[#20B2AA]/10');
     const timeout = setTimeout(() => setFlashClass(''), 300);
     return () => clearTimeout(timeout);
   }, [price]);
 
-  const isPositive = change24h ? change24h > 0 : false;
-  const isNegative = change24h ? change24h < 0 : false;
+  const isPositive = change24h ? change24h > 0 : true;
   const TrendIcon = isPositive ? TrendingUp : TrendingDown;
 
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-4 p-4 rounded-lg bg-bg-secondary border border-border transition-colors duration-300',
+        'flex items-center justify-between p-3.5 bg-[#0F1215] border border-[#1B2026] transition-colors duration-300 select-none',
         flashClass,
         className
       )}
     >
       <div>
-        <p className="text-sm text-text-tertiary uppercase tracking-wide mb-1">
-          Bitcoin (BTC)
+        <p className="text-[10px] font-mono font-bold text-[#586069] uppercase tracking-[0.12em]">
+          BITCOIN SPOT PRICE (BINANCE BTC/USDT)
         </p>
-        <p className="text-3xl sm:text-4xl font-bold font-mono text-text-primary">
+        <p className="text-2xl sm:text-3xl font-mono font-bold text-[#E1E4E8] tabular-nums mt-0.5">
           {formatCurrency(price, { minimumFractionDigits: 2 })}
         </p>
       </div>
 
       {change24h !== undefined && (
-        <div className="text-right">
+        <div className="text-right font-mono">
           <div
             className={cn(
-              'inline-flex items-center gap-1 px-3 py-1 rounded-md text-sm font-medium',
-              isPositive && 'bg-positive/20 text-positive',
-              isNegative && 'bg-negative/20 text-negative'
+              'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold uppercase rounded-xs border',
+              isPositive
+                ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
+                : 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30'
             )}
           >
-            <TrendIcon className="h-4 w-4" />
-            <span className="font-mono">
+            <TrendIcon className="h-3 w-3" />
+            <span className="tabular-nums">
               {formatPercent(change24h / 100, 2)}
             </span>
           </div>
-          <p className="text-xs text-text-tertiary mt-1">24h Change</p>
+          <p className="text-[10px] font-mono text-[#586069] mt-1 uppercase">24H CHANGE</p>
         </div>
       )}
     </div>

@@ -3,21 +3,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { ROUTES, APP_NAME } from '@/lib/constants';
 import { predictionApi } from '@/lib/api';
 import { formatCurrency, formatTimeAgo } from '@/lib/utils/format';
 import type { Prediction } from '@/types/prediction';
 import {
-  Bot,
-  Brain,
-  Zap,
-  Shield,
   TrendingUp,
   TrendingDown,
   ArrowRight,
+  Activity,
+  ShieldCheck,
+  Clock,
+  Terminal,
 } from 'lucide-react';
 
 const demoPredictions: Prediction[] = [
@@ -133,7 +130,7 @@ export default function LandingPage() {
   useEffect(() => {
     const loadPredictions = async () => {
       try {
-        const data = await predictionApi.getHistory({ limit: 6 });
+        const data = await predictionApi.getHistory({ limit: 8 });
         setPredictions(data.predictions);
         setIsDemo(false);
       } catch (error) {
@@ -158,168 +155,224 @@ export default function LandingPage() {
   const filteredWinRateLabel = filteredWinRate === '--' ? filteredWinRate : `${filteredWinRate}%`;
 
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary overflow-hidden">
-      <div className="pointer-events-none absolute -top-40 right-0 h-80 w-80 rounded-full bg-accent-primary/20 blur-[120px]" />
-      <div className="pointer-events-none absolute bottom-0 left-10 h-72 w-72 rounded-full bg-positive/10 blur-[140px]" />
-
-      <header className="relative z-10 border-b border-border/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="relative h-8 w-8">
-                <Image
-                  src="/logo.svg"
-                  alt="q1t Logo"
-                  fill
-                  className="object-contain"
-                  priority
-                />
-              </div>
-              <span className="text-sm uppercase tracking-[0.3em] text-text-tertiary">
-                {APP_NAME}
-              </span>
+    <div className="min-h-screen bg-[#080A0C] text-[#E1E4E8] font-sans">
+      {/* Top Header */}
+      <header className="border-b border-[#1B2026] bg-[#0F1215] select-none">
+        <div className="max-w-[1600px] mx-auto px-4 h-12 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative h-6 w-6">
+              <Image
+                src="/logo.svg"
+                alt="q1t Logo"
+                fill
+                className="object-contain"
+                priority
+              />
             </div>
+            <span className="font-mono text-xs font-bold tracking-[0.15em] text-[#E1E4E8]">
+              Q1T <span className="text-[#586069] mx-1">/</span> BITCOIN SIGNAL TREASURY
+            </span>
+          </div>
 
-            <div className="flex items-center gap-3">
-              <Link href={ROUTES.LOGIN}>
-                <Button variant="ghost">Login</Button>
-              </Link>
-              <Link href={ROUTES.REGISTER}>
-                <Button variant="primary">Get Started</Button>
-              </Link>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 font-mono text-[10px] uppercase text-[#8B949E] bg-[#16191E] px-2.5 py-1 border border-[#1B2026]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#20B2AA] animate-pulse" />
+              <span className="text-[#20B2AA]">• LIVE STREAM</span>
             </div>
+            <Link href={ROUTES.LOGIN}>
+              <button className="px-3 py-1 font-mono text-xs text-[#8B949E] hover:text-[#E1E4E8] transition-colors border border-transparent">
+                LOG IN
+              </button>
+            </Link>
+            <Link href={ROUTES.REGISTER}>
+              <button className="px-3.5 py-1 font-mono text-xs font-semibold text-[#080A0C] bg-[#20B2AA] hover:bg-[#1CA099] transition-colors rounded-xs">
+                LAUNCH ENGINE
+              </button>
+            </Link>
           </div>
         </div>
       </header>
 
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[calc(100vh-64px)] py-10">
-        <div className="grid h-full grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8">
-          <section className="flex h-full flex-col justify-between gap-8">
-            <div className="space-y-6">
-              <div className="inline-flex items-center gap-2 rounded-full border border-accent-primary/30 bg-accent-muted px-4 py-2 text-xs uppercase tracking-[0.3em] text-accent-primary">
-                <Bot className="h-4 w-4" />
-                AI Prediction Engine
+      {/* Main Terminal Viewport */}
+      <main className="max-w-[1600px] mx-auto px-4 py-6 space-y-6">
+        
+        {/* Top 4-Metric Meridian Banner */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-[#0F1215] border border-[#1B2026] p-3.5">
+            <p className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-[#586069]">
+              CORE STRATEGY
+            </p>
+            <p className="text-xl font-mono font-bold text-[#E1E4E8] mt-1">
+              MID-MARKET 5M
+            </p>
+            <p className="text-[11px] font-mono text-[#20B2AA] mt-0.5">
+              ACTIVE WINDOW SIGNAL
+            </p>
+          </div>
+
+          <div className="bg-[#0F1215] border border-[#1B2026] p-3.5">
+            <p className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-[#586069]">
+              FILTER WIN RATE
+            </p>
+            <p className="text-xl font-mono font-bold text-[#20B2AA] mt-1 tabular-nums">
+              {filteredWinRateLabel}
+            </p>
+            <p className="text-[11px] font-mono text-[#8B949E] mt-0.5">
+              CONFIDENCE GATED EXECUTION
+            </p>
+          </div>
+
+          <div className="bg-[#0F1215] border border-[#1B2026] p-3.5">
+            <p className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-[#586069]">
+              DECISION CADENCE
+            </p>
+            <p className="text-xl font-mono font-bold text-[#E1E4E8] mt-1">
+              5-MIN SLOPES
+            </p>
+            <p className="text-[11px] font-mono text-[#8B949E] mt-0.5">
+              MONTE CARLO CONSENSUS
+            </p>
+          </div>
+
+          <div className="bg-[#0F1215] border border-[#1B2026] p-3.5">
+            <p className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-[#586069]">
+              EXECUTION PIPELINE
+            </p>
+            <p className="text-xl font-mono font-bold text-[#20B2AA] mt-1">
+              POLYMARKET LIVE
+            </p>
+            <p className="text-[11px] font-mono text-[#8B949E] mt-0.5">
+              AUTO-CLAIM & SETTLEMENT
+            </p>
+          </div>
+        </div>
+
+        {/* 2-Column Split: System Overview vs Live Transaction Ledger */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Left Column: System Overview (5 cols) */}
+          <div className="lg:col-span-5 space-y-4">
+            <div className="bg-[#0F1215] border border-[#1B2026] p-6 space-y-6">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-bold text-[#20B2AA] bg-[#20B2AA]/10 border border-[#20B2AA]/30 uppercase">
+                  <Terminal className="h-3 w-3" />
+                  REAL-TIME BITCOIN INTELLIGENCE
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-[#E1E4E8]">
+                  PRECISION SIGNAL EXECUTION SYSTEM
+                </h1>
+                <p className="text-xs font-mono text-[#8B949E] leading-relaxed">
+                  Engineered strictly around high-resolution BTC market structure. Filters signals via Monte Carlo slope consensus and auto-executes qualified predictions directly into prediction market positions.
+                </p>
               </div>
 
-              <h1 className="text-5xl leading-tight font-bold sm:text-6xl">
-                Futuristic Bitcoin
-                <span className="block text-accent-primary">Signal Intelligence</span>
-              </h1>
-
-              <p className="max-w-xl text-lg text-text-secondary">
-                Our AI Engine streams high-resolution market structure, executes
-                asymmetry-aware fades, and keeps every prediction transparent in
-                real time. This is not a bot. It is a live decision system.
-              </p>
-
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="pt-2 flex flex-wrap gap-3">
                 <Link href={ROUTES.REGISTER}>
-                  <Button size="lg" variant="primary">
-                    Launch the Engine
-                  </Button>
+                  <button className="px-4 py-2 text-xs font-mono font-bold text-[#080A0C] bg-[#20B2AA] hover:bg-[#1CA099] transition-colors rounded-xs flex items-center gap-2">
+                    LAUNCH TERMINAL <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
                 </Link>
                 <Link href={ROUTES.DASHBOARD}>
-                  <Button size="lg" variant="outlined">
-                    Watch Live Signals
-                  </Button>
+                  <button className="px-4 py-2 text-xs font-mono text-[#8B949E] hover:text-[#E1E4E8] bg-[#16191E] hover:bg-[#16191E]/80 border border-[#1B2026] transition-colors">
+                    WATCH LIVE SIGNALS
+                  </button>
                 </Link>
-                <div className="flex items-center gap-2 text-xs text-text-tertiary">
-                  <ArrowRight className="h-3 w-3" />
-                  Real-time streaming predictions
-                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card padding="lg" className="border border-accent-primary/20 bg-bg-secondary/60">
-                <Brain className="h-6 w-6 text-accent-primary mb-3" />
-                <p className="text-sm font-semibold">Trajectory Intelligence</p>
-                <p className="text-xs text-text-tertiary">Monte Carlo slope consensus</p>
-              </Card>
-              <Card padding="lg" className="border border-positive/20 bg-bg-secondary/60">
-                <Shield className="h-6 w-6 text-positive mb-3" />
-                <p className="text-sm font-semibold">Filter Discipline</p>
-                <p className="text-xs text-text-tertiary">Risk-gated trade execution</p>
-              </Card>
-              <Card padding="lg" className="border border-neutral/20 bg-bg-secondary/60">
-                <Zap className="h-6 w-6 text-neutral mb-3" />
-                <p className="text-sm font-semibold">5-Minute Cadence</p>
-                <p className="text-xs text-text-tertiary">High-frequency structure capture</p>
-              </Card>
+            {/* Technical Feature Blocks */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-[#0F1215] border border-[#1B2026] p-3.5 space-y-1">
+                <Activity className="h-4 w-4 text-[#20B2AA]" />
+                <p className="text-xs font-mono font-bold text-[#E1E4E8]">TRAJECTORY</p>
+                <p className="text-[10px] font-mono text-[#586069]">5m slope consensus</p>
+              </div>
+              <div className="bg-[#0F1215] border border-[#1B2026] p-3.5 space-y-1">
+                <ShieldCheck className="h-4 w-4 text-[#20B2AA]" />
+                <p className="text-xs font-mono font-bold text-[#E1E4E8]">DISCIPLINE</p>
+                <p className="text-[10px] font-mono text-[#586069]">Risk-gated execution</p>
+              </div>
+              <div className="bg-[#0F1215] border border-[#1B2026] p-3.5 space-y-1">
+                <Clock className="h-4 w-4 text-[#D99B00]" />
+                <p className="text-xs font-mono font-bold text-[#E1E4E8]">CADENCE</p>
+                <p className="text-[10px] font-mono text-[#586069]">High frequency 5m</p>
+              </div>
             </div>
-          </section>
+          </div>
 
-          <section className="flex h-full flex-col gap-4">
-            <Card padding="lg" className="flex h-full flex-col border border-border/60 bg-bg-secondary/70">
-              <div className="flex items-center justify-between">
+          {/* Right Column: Recent Prediction Ledger (7 cols) - Meridian Style Table */}
+          <div className="lg:col-span-7">
+            <div className="bg-[#0F1215] border border-[#1B2026] flex flex-col h-full">
+              
+              {/* Table Header Banner */}
+              <div className="p-3.5 border-b border-[#1B2026] flex items-center justify-between bg-[#16191E]/60">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-text-tertiary">Prediction Ledger</p>
-                  <h2 className="text-xl font-semibold mt-2">Recent Engine Calls</h2>
+                  <p className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-[#586069]">
+                    PREDICTION LEDGER
+                  </p>
+                  <h2 className="text-sm font-mono font-semibold text-[#E1E4E8] mt-0.5">
+                    RECENT ENGINE CALLS
+                  </h2>
                 </div>
-                <Badge variant="success" size="sm">
-                  Filter Win Rate: {filteredWinRateLabel}
-                </Badge>
+                <div className="px-2 py-1 text-[10px] font-mono font-bold uppercase text-[#20B2AA] bg-[#20B2AA]/10 border border-[#20B2AA]/20">
+                  WIN RATE: {filteredWinRateLabel}
+                </div>
               </div>
 
-              <div className="mt-4 flex-1 overflow-hidden rounded-lg border border-border/40">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-bg-tertiary/60 text-xs text-text-tertiary uppercase tracking-wide">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium">Time</th>
-                      <th className="px-3 py-2 text-left font-medium">Signal</th>
-                      <th className="px-3 py-2 text-right font-medium">Strike</th>
-                      <th className="px-3 py-2 text-right font-medium">Target</th>
-                      <th className="px-3 py-2 text-right font-medium">Outcome</th>
+              {/* Table Body */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#16191E] border-b border-[#1B2026] text-[10px] font-mono text-[#586069] uppercase tracking-[0.1em]">
+                      <th className="px-3 py-2">TIME</th>
+                      <th className="px-3 py-2">SIGNAL</th>
+                      <th className="px-3 py-2 text-right">STRIKE</th>
+                      <th className="px-3 py-2 text-right">TARGET</th>
+                      <th className="px-3 py-2 text-right">OUTCOME</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border/50">
+                  <tbody className="divide-y divide-[#1B2026]/60 font-mono text-xs">
                     {loading ? (
                       <tr>
-                        <td colSpan={5} className="px-3 py-8 text-center text-xs text-text-tertiary">
-                          Loading predictions...
+                        <td colSpan={5} className="px-3 py-8 text-center text-[#586069]">
+                          Loading prediction ledger...
                         </td>
                       </tr>
                     ) : (
                       predictions.map((pred) => {
                         const isHold = pred.filter_passed === false;
                         const directionLabel = isHold ? 'HOLD' : pred.direction;
-                        const DirectionIcon = directionLabel === 'UP'
-                          ? TrendingUp
-                          : directionLabel === 'DOWN'
-                          ? TrendingDown
-                          : Shield;
 
                         return (
-                          <tr key={pred._id} className="text-text-secondary">
-                            <td className="px-3 py-2 text-xs text-text-tertiary">
+                          <tr key={pred._id} className="hover:bg-[#16191E]/40 transition-colors">
+                            <td className="px-3 py-2 text-[#8B949E]">
                               {pred.createdAt ? formatTimeAgo(pred.createdAt) : '--'}
                             </td>
                             <td className="px-3 py-2">
-                              <div className="flex items-center gap-2">
-                                <DirectionIcon
-                                  className={
-                                    directionLabel === 'UP'
-                                      ? 'h-4 w-4 text-positive'
-                                      : directionLabel === 'DOWN'
-                                      ? 'h-4 w-4 text-negative'
-                                      : 'h-4 w-4 text-text-tertiary'
-                                  }
-                                />
-                                <span className="text-sm font-semibold text-text-primary">
-                                  {directionLabel}
-                                </span>
-                              </div>
+                              <span className={`inline-flex items-center gap-1 font-bold ${
+                                directionLabel === 'UP' ? 'text-[#20B2AA]' : directionLabel === 'DOWN' ? 'text-[#E55353]' : 'text-[#8B949E]'
+                              }`}>
+                                {directionLabel === 'UP' && <TrendingUp className="h-3.5 w-3.5" />}
+                                {directionLabel === 'DOWN' && <TrendingDown className="h-3.5 w-3.5" />}
+                                {directionLabel}
+                              </span>
                             </td>
-                            <td className="px-3 py-2 text-right font-mono text-text-primary">
+                            <td className="px-3 py-2 text-right tabular-nums text-[#E1E4E8]">
                               {formatCurrency(pred.strike_price, { maximumFractionDigits: 0 })}
                             </td>
-                            <td className="px-3 py-2 text-right font-mono text-text-primary">
+                            <td className="px-3 py-2 text-right tabular-nums text-[#E1E4E8]">
                               {formatCurrency(pred.target_close, { maximumFractionDigits: 0 })}
                             </td>
                             <td className="px-3 py-2 text-right">
-                              <Badge variant={pred.outcome === 'WIN' ? 'success' : pred.outcome === 'LOSS' ? 'error' : 'default'} size="sm">
+                              <span className={`inline-block px-1.5 py-0.5 text-[10px] font-bold uppercase rounded-xs border ${
+                                pred.outcome === 'WIN'
+                                  ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
+                                  : pred.outcome === 'LOSS'
+                                  ? 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30'
+                                  : 'bg-[#D99B00]/15 text-[#D99B00] border-[#D99B00]/30'
+                              }`}>
                                 {pred.outcome || 'PENDING'}
-                              </Badge>
+                              </span>
                             </td>
                           </tr>
                         );
@@ -329,22 +382,26 @@ export default function LandingPage() {
                 </table>
               </div>
 
-              <div className="mt-4 flex items-center justify-between text-xs text-text-tertiary">
-                <span>{isDemo ? 'Demo data (login for live ledger)' : 'Live prediction stream'}</span>
-                <Link href={ROUTES.DASHBOARD} className="text-accent-primary hover:text-accent-primary/80">
-                  View full history
+              {/* Table Footer */}
+              <div className="p-3 border-t border-[#1B2026] flex items-center justify-between text-[11px] font-mono text-[#586069] bg-[#16191E]/30 mt-auto">
+                <span>{isDemo ? 'DEMO STREAM (LOG IN FOR LIVE LEDGER)' : 'REAL-TIME SIGNAL FEED'}</span>
+                <Link href={ROUTES.DASHBOARD} className="text-[#20B2AA] hover:underline flex items-center gap-1">
+                  VIEW FULL HISTORY <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
-            </Card>
-          </section>
+
+            </div>
+          </div>
+
         </div>
+
       </main>
 
-      <footer className="relative z-10 py-12 border-t border-border/40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center text-sm text-text-tertiary">
-            © {new Date().getFullYear()} {APP_NAME}. All rights reserved.
-          </div>
+      {/* Terminal Footer */}
+      <footer className="border-t border-[#1B2026] bg-[#0F1215] py-4 mt-12">
+        <div className="max-w-[1600px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 font-mono text-[11px] text-[#586069]">
+          <span>© {new Date().getFullYear()} {APP_NAME}. SYSTEM v2.4</span>
+          <span>SOURCES: BINANCE SPOT • POLYMARKET • MID-MARKET 5M</span>
         </div>
       </footer>
     </div>

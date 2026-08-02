@@ -25,44 +25,43 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const baseStyles = [
       'inline-flex items-center justify-center gap-2',
-      'rounded-md font-semibold',
-      'transition-all duration-fast',
-      'focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-bg-primary',
-      'disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none',
-      'active:scale-[0.98]',
+      'rounded-xs font-mono font-bold uppercase tracking-wider',
+      'transition-colors duration-150',
+      'focus:outline-none focus:ring-1 focus:ring-[#20B2AA]',
+      'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
+      'select-none',
     ];
 
     const variants = {
       primary: [
-        'bg-accent-primary text-bg-primary',
-        'hover:bg-accent-hover',
-        'shadow-sm hover:shadow-md',
+        'bg-[#20B2AA] text-[#080A0C]',
+        'hover:bg-[#1CA099]',
       ],
       secondary: [
-        'bg-bg-secondary text-text-primary',
-        'border border-border',
-        'hover:bg-bg-tertiary hover:border-border-hover',
+        'bg-[#16191E] text-[#E1E4E8]',
+        'border border-[#1B2026]',
+        'hover:bg-[#1C2026] hover:border-[#2A313A]',
       ],
       outlined: [
-        'bg-transparent text-text-primary',
-        'border-2 border-border',
-        'hover:border-border-hover hover:bg-white/5',
+        'bg-transparent text-[#E1E4E8]',
+        'border border-[#1B2026]',
+        'hover:border-[#20B2AA] hover:bg-[#20B2AA]/10',
       ],
       ghost: [
-        'bg-transparent text-text-secondary',
-        'hover:bg-white/5 hover:text-text-primary',
+        'bg-transparent text-[#8B949E]',
+        'hover:bg-[#16191E] hover:text-[#E1E4E8]',
       ],
       danger: [
-        'bg-negative/20 text-negative',
-        'border border-negative/50',
-        'hover:bg-negative/30',
+        'bg-[#E55353]/15 text-[#E55353]',
+        'border border-[#E55353]/30',
+        'hover:bg-[#E55353]/25',
       ],
     };
 
     const sizes = {
-      sm: 'h-9 px-3 text-sm',
-      md: 'h-10 px-4 text-base',
-      lg: 'h-12 px-6 text-lg',
+      sm: 'h-7 px-2.5 text-[10px]',
+      md: 'h-8 px-3.5 text-xs',
+      lg: 'h-10 px-5 text-xs',
     };
 
     return (
@@ -79,7 +78,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || loading}
         {...props}
       >
-        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+        {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
         {children}
       </button>
     );

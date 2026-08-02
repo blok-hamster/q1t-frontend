@@ -11,7 +11,7 @@ import type { Transaction } from '@/components/portfolio/transaction-history';
 import { Loading } from '@/components/ui/loading';
 import { toast } from '@/context/toast-context';
 import type { Balance } from '@/types/api';
-import { Wallet, DollarSign } from 'lucide-react';
+import { Wallet, DollarSign, Shield } from 'lucide-react';
 
 export default function PortfolioPage() {
   const { user } = useAuth();
@@ -21,7 +21,6 @@ export default function PortfolioPage() {
   const [walletType, setWalletType] = useState<'eoa' | 'proxy'>('eoa');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  // Fetch balances and transactions
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -36,33 +35,26 @@ export default function PortfolioPage() {
           setWalletType(addressData.wallet_type);
         }
 
-        // Fetch real transaction history
         try {
           const transactionData = await dashboardApi.getTransactions(1, 50);
-
-          // Transform API transactions to match TransactionHistory component format
           const transformedTransactions: Transaction[] = transactionData.transactions.map(tx => ({
             id: tx.id,
             type: tx.type.startsWith('trade') ? 'deposit' as const : tx.type as 'deposit' | 'withdrawal',
             amount: tx.amount,
-            asset: 'USDC', // Default to USDC for now
+            asset: 'USDC',
             status: tx.status === 'completed' ? 'confirmed' : tx.status === 'pending' ? 'pending' : 'failed',
             timestamp: tx.timestamp,
-            // Optional fields for trade types
             ...(tx.market && { market: tx.market }),
             ...(tx.direction && { direction: tx.direction }),
             ...(tx.pnl !== undefined && { pnl: tx.pnl }),
           }));
 
           setTransactions(transformedTransactions);
-          console.log('✅ Loaded transaction history:', transformedTransactions.length, 'transactions');
         } catch (txError) {
           console.error('Failed to load transaction history:', txError);
-          // Keep transactions empty array if API fails
         }
       } catch (error) {
         toast.error('Failed to load portfolio data');
-        console.error(error);
       } finally {
         setLoading(false);
       }
@@ -70,7 +62,6 @@ export default function PortfolioPage() {
 
     fetchData();
 
-    // Poll balances every 30 seconds
     const interval = setInterval(() => {
       portfolioApi.getBalances().then(setBalances).catch(console.error);
     }, 30000);
@@ -79,65 +70,55 @@ export default function PortfolioPage() {
   }, []);
 
   if (loading) {
-    return <Loading text="Loading portfolio..." />;
+    return <Loading text="Loading portfolio ledger..." />;
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-text-primary">Portfolio</h1>
-        <p className="text-sm text-text-secondary mt-1">
-          Manage your wallet and funds
-        </p>
-      </div>
+  const totalUsd = balances?.totalUsd || 0;
 
-      {/* Balance Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  return (
+    <div className="space-y-4 max-w-[1600px] mx-auto px-4 py-4">
+      {/* Meridian Balance Summary Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 font-mono">
         <BalanceCard
-          asset="MATIC"
+          asset="MATIC (POLYGON GAS)"
           balance={balances?.matic || 0}
-          usdValue={(balances?.matic || 0) * 0.8} // Mock price
+          usdValue={(balances?.matic || 0) * 0.8}
           icon={Wallet}
         />
 
         <BalanceCard
-          asset="USDC"
+          asset="USDC (POLYMARKET SETTLEMENT)"
           balance={balances?.usdc || 0}
           usdValue={balances?.usdc || 0}
           icon={DollarSign}
         />
 
-        <div className="md:col-span-2 lg:col-span-1">
-          <div className="h-full p-6 bg-gradient-to-br from-accent-primary/20 to-positive/20 rounded-lg border border-accent-primary/30">
-            <div className="space-y-2">
-              <h3 className="text-sm text-text-tertiary uppercase tracking-wide">
-                Total Portfolio Value
-              </h3>
-              <p className="text-4xl font-bold font-mono text-text-primary">
-                ${(balances?.totalUsd || 0).toFixed(2)}
-              </p>
-              <p className="text-xs text-text-secondary">
-                Updated just now
-              </p>
-            </div>
+        <div className="bg-[#0F1215] border border-[#1B2026] p-3.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold text-[#586069] uppercase tracking-[0.12em]">
+              TOTAL TREASURY VALUE
+            </p>
+            <Shield className="h-3.5 w-3.5 text-[#20B2AA]" />
+          </div>
+          <p className="text-2xl font-bold text-[#20B2AA] tabular-nums">
+            ${totalUsd.toFixed(2)}
+          </p>
+          <div className="w-full bg-[#16191E] h-1.5 rounded-xs overflow-hidden">
+            <div className="bg-[#20B2AA] h-full" style={{ width: '100%' }} />
           </div>
         </div>
       </div>
 
-      {/* Deposit & Withdraw */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Deposit Address */}
+      {/* Deposit & Withdraw Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {depositAddress && <DepositAddress address={depositAddress} walletType={walletType} />}
-
-        {/* Withdraw Form */}
         <WithdrawForm
           availableBalance={balances?.usdc || 0}
           requires2FA={user?.twoFactorEnabled}
         />
       </div>
 
-      {/* Transaction History */}
+      {/* Transaction Ledger History */}
       <TransactionHistory transactions={transactions} loading={loading} />
     </div>
   );

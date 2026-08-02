@@ -195,7 +195,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
   const breakEvenWinRate = maxLossPerStop > 0 ? maxLossPerStop / (profitPerWin + maxLossPerStop) : 0;
 
   return (
-    <Card>
+    <Card className="font-mono text-xs select-none">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -216,7 +216,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
         </div>
       </CardHeader>
 
-      <CardBody className="space-y-5">
+      <CardBody className="space-y-5 max-h-[380px] overflow-y-auto scrollbar-thin pr-1">
         {/* ═══ TRADE ECONOMICS (always visible summary) ═══ */}
         <div className="p-4 bg-accent-muted border border-accent-primary/30 rounded-lg">
           <div className="grid grid-cols-4 gap-3 text-sm">

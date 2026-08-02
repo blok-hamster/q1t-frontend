@@ -1,115 +1,90 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { settingsApi } from '@/lib/api';
 import { toast } from '@/context/toast-context';
-import { Wallet } from 'lucide-react';
-import { useSocket } from '@/context/socket-context';
-import { useEffect } from 'react';
+import { DollarSign, RotateCcw } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils/format';
 
-interface PaperBalancePanelProps {
+interface Props {
   initialBalance: number;
   onUpdate: (balance: number) => void;
 }
 
-export function PaperBalancePanel({ initialBalance, onUpdate }: PaperBalancePanelProps) {
-  const { socket } = useSocket();
-  const [balance, setBalance] = useState(initialBalance);
-  const [inputValue, setInputValue] = useState(String(initialBalance));
-  const [saving, setSaving] = useState(false);
+export function PaperBalancePanel({ initialBalance, onUpdate }: Props) {
+  const [balance, setBalance] = useState<number>(initialBalance);
+  const [inputVal, setInputVal] = useState<string>('');
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!socket) return;
-    const handler = (data: { balance: number }) => {
-      setBalance(data.balance);
-      onUpdate(data.balance);
-    };
-    socket.on('paper_balance_update', handler);
-    return () => { socket.off('paper_balance_update', handler); };
-  }, [socket, onUpdate]);
-
-  const handleSave = async () => {
-    const value = parseFloat(inputValue);
-    if (isNaN(value) || value < 0) {
-      toast.error('Balance must be a non-negative number');
+  const handleSetBalance = async (newVal: number) => {
+    if (isNaN(newVal) || newVal < 0) {
+      toast.error('Enter a valid positive balance');
       return;
     }
-    setSaving(true);
-    try {
-      const result = await settingsApi.updatePaperBalance(value);
-      setBalance(result.paperBalance);
-      onUpdate(result.paperBalance);
-      toast.success(`Paper balance set to $${result.paperBalance.toFixed(2)}`);
-    } catch {
-      toast.error('Failed to update paper balance');
-    } finally {
-      setSaving(false);
-    }
-  };
 
-  const handleReset = async () => {
-    setSaving(true);
+    setLoading(true);
     try {
-      const result = await settingsApi.resetPaperBalance(1000);
-      setBalance(result.paperBalance);
-      setInputValue(String(result.paperBalance));
-      onUpdate(result.paperBalance);
-      toast.success('Paper balance reset to $1,000.00');
-    } catch {
-      toast.error('Failed to reset paper balance');
+      await settingsApi.updatePaperBalance(newVal);
+      setBalance(newVal);
+      onUpdate(newVal);
+      setInputVal('');
+      toast.success(`Paper balance updated to ${formatCurrency(newVal)}`);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to update paper balance');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
   return (
-    <Card padding="lg">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <Wallet className="h-5 w-5 text-accent-primary" />
+    <div className="bg-[#0F1215] border border-[#1B2026] select-none font-mono">
+      {/* Header */}
+      <div className="p-3.5 border-b border-[#1B2026] flex items-center justify-between bg-[#16191E]/60">
+        <div className="flex items-center gap-2">
+          <DollarSign className="h-4 w-4 text-[#20B2AA]" />
           <div>
-            <h3 className="text-lg font-semibold text-text-primary">Paper Trading Balance</h3>
-            <p className="text-sm text-text-secondary mt-1">
-              Simulated bankroll for dry-run mode. Deducted on entry, credited on exit.
-            </p>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#586069] block">
+              SIMULATION ACCOUNT
+            </span>
+            <h3 className="font-mono text-xs font-bold text-[#E1E4E8] mt-0.5 uppercase">
+              PAPER TRADING BALANCE
+            </h3>
           </div>
         </div>
-      </CardHeader>
-      <CardBody>
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <p className="text-xs text-text-tertiary uppercase tracking-wide mb-1">Current Balance</p>
-            <p className={`text-2xl font-mono font-bold tabular-nums ${balance >= 0 ? 'text-positive' : 'text-negative'}`}>
-              ${balance.toFixed(2)}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              className="w-28 px-3 py-2 text-sm font-mono bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-primary"
-              min="0"
-              step="100"
-            />
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-3 py-2 text-xs font-semibold rounded-lg bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50 transition-colors"
-            >
-              Set
-            </button>
-            <button
-              onClick={handleReset}
-              disabled={saving}
-              className="px-3 py-2 text-xs font-semibold rounded-lg border border-border text-text-secondary hover:text-text-primary hover:border-text-tertiary disabled:opacity-50 transition-colors"
-            >
-              Reset
-            </button>
-          </div>
+        <span className="font-mono text-xs font-bold text-[#20B2AA] tabular-nums bg-[#20B2AA]/10 border border-[#20B2AA]/30 px-2 py-0.5 rounded-xs">
+          {formatCurrency(balance)} USDC
+        </span>
+      </div>
+
+      <div className="p-4 space-y-4 font-mono text-xs">
+        <p className="text-[#8B949E] text-xs">
+          Set virtual capital for dry-run simulation trades. DRY RUN mode uses this virtual balance.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="number"
+            value={inputVal}
+            onChange={(e) => setInputVal(e.target.value)}
+            placeholder="Custom balance..."
+            className="px-3 py-1.5 bg-[#080A0C] border border-[#1B2026] text-[#E1E4E8] font-mono text-xs focus:border-[#20B2AA] focus:outline-none w-44 rounded-xs"
+          />
+          <button
+            onClick={() => handleSetBalance(parseFloat(inputVal))}
+            disabled={loading || !inputVal}
+            className="px-3.5 py-1.5 bg-[#20B2AA]/10 text-[#20B2AA] border border-[#20B2AA]/30 font-bold uppercase hover:bg-[#20B2AA]/20 transition-colors disabled:opacity-40 cursor-pointer rounded-xs"
+          >
+            Update Balance
+          </button>
+          <button
+            onClick={() => handleSetBalance(1000)}
+            disabled={loading}
+            className="px-3.5 py-1.5 bg-[#16191E] text-[#8B949E] border border-[#1B2026] font-bold uppercase hover:text-[#E1E4E8] hover:border-[#2A313A] transition-colors flex items-center gap-1.5 cursor-pointer rounded-xs"
+          >
+            <RotateCcw className="h-3 w-3" /> Reset $1,000
+          </button>
         </div>
-      </CardBody>
-    </Card>
+      </div>
+    </div>
   );
 }

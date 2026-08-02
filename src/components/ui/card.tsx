@@ -19,43 +19,18 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
     },
     ref
   ) => {
-    const baseStyles = 'rounded-lg';
-
-    const variants = {
-      default: [
-        'bg-bg-secondary',
-        'border border-border',
-        'shadow-md',
-      ],
-      elevated: [
-        'bg-bg-secondary',
-        'border border-border',
-        'shadow-lg',
-      ],
-      flat: [
-        'bg-bg-secondary',
-        'border border-border',
-      ],
-      glass: [
-        'bg-bg-secondary/80',
-        'backdrop-blur-xl',
-        'border border-border',
-        'shadow-lg',
-      ],
-    };
+    const baseStyles = 'rounded-sm bg-[#0F1215] border border-[#1B2026]';
 
     const paddings = {
       none: '',
-      sm: 'p-sm',
-      md: 'p-lg',
-      lg: 'p-xl',
+      sm: 'p-3',
+      md: 'p-4',
+      lg: 'p-5',
     };
 
     const hoverStyles = hover && [
-      'transition-all duration-normal',
-      'hover:border-border-hover',
-      'hover:shadow-xl',
-      'hover:scale-[1.01]',
+      'transition-all duration-200',
+      'hover:border-[#2A313A]',
     ];
 
     return (
@@ -63,7 +38,6 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
         ref={ref}
         className={cn(
           baseStyles,
-          variants[variant],
           paddings[padding],
           hoverStyles,
           className
@@ -78,9 +52,6 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
 
 Card.displayName = 'Card';
 
-/**
- * Card Header component
- */
 export interface CardHeaderProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
   title?: React.ReactNode;
   subtitle?: string;
@@ -92,17 +63,17 @@ export const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
     return (
       <div
         ref={ref}
-        className={cn('flex items-start justify-between mb-md', className)}
+        className={cn('flex items-start justify-between pb-3 mb-3 border-b border-[#1B2026]', className)}
         {...props}
       >
         <div className="flex-1">
           {title && (
-            <h3 className="text-lg font-semibold text-text-primary">
+            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-[#E1E4E8]">
               {title}
             </h3>
           )}
           {subtitle && (
-            <p className="text-sm text-text-secondary mt-1">{subtitle}</p>
+            <p className="text-[11px] font-mono text-[#586069] mt-0.5 uppercase">{subtitle}</p>
           )}
           {children}
         </div>
@@ -114,9 +85,6 @@ export const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
 
 CardHeader.displayName = 'CardHeader';
 
-/**
- * Card Body component
- */
 export const CardBody = forwardRef<
   HTMLDivElement,
   HTMLAttributes<HTMLDivElement>
@@ -130,9 +98,6 @@ export const CardBody = forwardRef<
 
 CardBody.displayName = 'CardBody';
 
-/**
- * Card Footer component
- */
 export const CardFooter = forwardRef<
   HTMLDivElement,
   HTMLAttributes<HTMLDivElement>
@@ -141,7 +106,7 @@ export const CardFooter = forwardRef<
     <div
       ref={ref}
       className={cn(
-        'flex items-center justify-between mt-md pt-md border-t border-border',
+        'flex items-center justify-between mt-3 pt-3 border-t border-[#1B2026] text-xs font-mono text-[#586069]',
         className
       )}
       {...props}

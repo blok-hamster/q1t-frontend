@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/auth-context';
 import { settingsApi } from '@/lib/api';
-import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { toast } from '@/context/toast-context';
-import { Target, TrendingUp, Zap, Shield } from 'lucide-react';
+import { Zap, TrendingUp, ShieldCheck, Lock } from 'lucide-react';
 import type { StrategySelection, MarketConfig, AiV2Config } from '@/types/api';
 import { cn } from '@/lib/utils/cn';
 
@@ -21,22 +21,10 @@ const SUPPORTED_MARKETS = [
 
 const STRATEGIES = [
   {
-    value: 'ai_prediction_v2',
-    label: 'AI Prediction',
-    description: 'Classifier-driven entry with dynamic TP/SL across all markets',
-    icon: Target,
-  },
-  {
     value: 'mid_market',
-    label: 'Mid-Market',
-    description: 'Momentum entry during active windows',
+    label: 'Mid-Market Strategy',
+    description: 'Trajectory slope consensus & momentum entry during 5-minute active windows',
     icon: TrendingUp,
-  },
-  {
-    value: 'scalp',
-    label: 'Scalp',
-    description: 'Buy cheap trailing side, exit on TP/SL',
-    icon: Shield,
   },
 ];
 
@@ -47,21 +35,21 @@ interface Props {
 }
 
 export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdate }: Props) {
+  const { user } = useAuth();
+  const isAdmin = user?.isAdmin ?? false;
+
   const [strategy, setStrategy] = useState<StrategySelection>(initialStrategy);
   const [saving, setSaving] = useState(false);
-  const [aiV2Configs, setAiV2Configs] = useState<AiV2Config[]>([]);
-
-  const activeStrategies = strategy.active_strategies || [];
-  const showMidMarketMarkets = activeStrategies.includes('mid_market') || activeStrategies.includes('scalp');
-  const showAiV2Markets = activeStrategies.includes('ai_prediction_v2');
+  const [configs, setConfigs] = useState<MarketConfig[]>(marketConfigs);
 
   useEffect(() => {
-    if (showAiV2Markets) {
-      settingsApi.getAiV2Configs().then(resp => {
-        setAiV2Configs(resp.aiV2Configs || []);
-      }).catch(() => {});
-    }
-  }, [showAiV2Markets]);
+    setStrategy(initialStrategy);
+    setConfigs(marketConfigs);
+  }, [initialStrategy, marketConfigs]);
+
+  const activeStrategies = strategy.active_strategies || [];
+  const showMidMarketMarkets =
+    activeStrategies.includes('mid_market') || activeStrategies.includes('scalp');
 
   const handleStrategyToggle = async (value: string) => {
     const current = strategy.active_strategies || [];
@@ -86,7 +74,8 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
     }
   };
 
-  const handleMarketToggle = async (marketId: string) => {
+  // User toggle to activate/deactivate an admin-approved market
+  const handleUserMarketToggle = async (marketId: string) => {
     const current = strategy.mid_market_markets || [];
     const updated = current.includes(marketId)
       ? current.filter((m) => m !== marketId)
@@ -97,6 +86,11 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
       const resp = await settingsApi.updateStrategySelection({ mid_market_markets: updated });
       setStrategy(resp.strategySelection);
       onUpdate(resp.strategySelection);
+      toast.success(
+        updated.includes(marketId)
+          ? `Activated ${marketId.toUpperCase()}`
+          : `Deactivated ${marketId.toUpperCase()}`
+      );
     } catch (error) {
       toast.error('Failed to update market selection');
     } finally {
@@ -104,44 +98,51 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
     }
   };
 
-  const handleAiV2MarketToggle = async (marketId: string) => {
-    const existing = aiV2Configs.find(c => c.market_type === marketId);
-    const newEnabled = !existing?.enabled;
-
+  // Admin toggle to globally enable/disable a market platform-wide
+  const handleAdminGlobalMarketToggle = async (marketId: string, currentEnabled: boolean) => {
     setSaving(true);
     try {
-      const resp = await settingsApi.updateAiV2Config(marketId, { enabled: newEnabled });
-      setAiV2Configs(prev => {
-        const idx = prev.findIndex(c => c.market_type === marketId);
-        if (idx >= 0) {
-          const updated = [...prev];
-          updated[idx] = resp.aiV2Config;
-          return updated;
-        }
-        return [...prev, resp.aiV2Config];
-      });
+      await settingsApi.updateMarketConfig(marketId, { enabled: !currentEnabled });
+      setConfigs((prev) =>
+        prev.map((c) => (c.market_type === marketId ? { ...c, enabled: !currentEnabled } : c))
+      );
+      toast.success(
+        !currentEnabled
+          ? `Global Trading ENABLED for ${marketId.toUpperCase()}`
+          : `Global Trading DISABLED for ${marketId.toUpperCase()}`
+      );
     } catch (error) {
-      toast.error('Failed to update AI market selection');
+      toast.error('Failed to update global market availability');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Card padding="lg">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <Zap className="h-5 w-5 text-accent-primary" />
+    <div className="bg-[#0F1215] border border-[#1B2026] select-none font-mono">
+      {/* Panel Header */}
+      <div className="p-3.5 border-b border-[#1B2026] flex items-center justify-between bg-[#16191E]/60">
+        <div className="flex items-center gap-2">
+          <Zap className="h-4 w-4 text-[#20B2AA]" />
           <div>
-            <h3 className="text-lg font-semibold text-text-primary">Strategy Selection</h3>
-            <p className="text-sm text-text-secondary mt-1">
-              Toggle one or more strategies to run simultaneously
-            </p>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#586069] block">
+              AUTOMATED STRATEGIES
+            </span>
+            <h3 className="font-mono text-xs font-bold text-[#E1E4E8] mt-0.5 uppercase">
+              STRATEGY SELECTION & MARKET CONTROL
+            </h3>
           </div>
         </div>
-      </CardHeader>
-      <CardBody>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {isAdmin && (
+          <span className="inline-flex items-center gap-1 font-mono text-[9px] uppercase px-2 py-0.5 bg-[#D99B00]/10 text-[#D99B00] border border-[#D99B00]/30 font-bold rounded-xs">
+            <ShieldCheck className="h-3 w-3" /> ADMIN CONTROL ACTIVE
+          </span>
+        )}
+      </div>
+
+      <div className="p-4 space-y-6">
+        {/* Strategy Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {STRATEGIES.map((s) => {
             const isActive = activeStrategies.includes(s.value);
             return (
@@ -150,24 +151,32 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
                 onClick={() => handleStrategyToggle(s.value)}
                 disabled={saving}
                 className={cn(
-                  'flex items-start gap-3 p-4 rounded-lg border transition-colors text-left',
+                  'flex items-start gap-3 p-3.5 border transition-all text-left cursor-pointer rounded-xs',
                   isActive
-                    ? 'border-accent-primary bg-accent-muted'
-                    : 'border-border hover:border-text-tertiary'
+                    ? 'bg-[#16191E] border-[#20B2AA]/50 text-[#E1E4E8]'
+                    : 'bg-[#080A0C] border-[#1B2026] text-[#8B949E] hover:border-[#2A313A] hover:text-[#E1E4E8]'
                 )}
               >
-                <s.icon className={cn(
-                  'h-5 w-5 mt-0.5 shrink-0',
-                  isActive ? 'text-accent-primary' : 'text-text-tertiary'
-                )} />
+                <s.icon
+                  className={cn('h-4 w-4 mt-0.5 shrink-0', isActive ? 'text-[#20B2AA]' : 'text-[#586069]')}
+                />
                 <div>
-                  <p className={cn(
-                    'text-sm font-medium',
-                    isActive ? 'text-accent-primary' : 'text-text-primary'
-                  )}>
-                    {s.label}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold font-mono uppercase">{s.label}</span>
+                    <span
+                      className={cn(
+                        'text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-xs border',
+                        isActive
+                          ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
+                          : 'bg-[#586069]/15 text-[#586069] border-[#586069]/30'
+                      )}
+                    >
+                      {isActive ? 'ONLINE' : 'OFF'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#8B949E] mt-1 font-mono leading-relaxed">
+                    {s.description}
                   </p>
-                  <p className="text-xs text-text-secondary mt-0.5">{s.description}</p>
                 </div>
               </button>
             );
@@ -175,81 +184,125 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
         </div>
 
         {activeStrategies.length === 0 && (
-          <p className="text-sm text-text-tertiary mt-3 text-center">
-            No strategies active — all automated trading is paused
-          </p>
-        )}
-
-        {showAiV2Markets && (
-          <div className="mt-6 pt-4 border-t border-border">
-            <p className="text-sm font-medium text-text-primary mb-3">
-              AI Prediction Markets
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {SUPPORTED_MARKETS.map((m) => {
-                const config = aiV2Configs.find(c => c.market_type === m.id);
-                const isEnabled = config?.enabled ?? false;
-
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => handleAiV2MarketToggle(m.id)}
-                    disabled={saving}
-                    className={cn(
-                      'px-3 py-2 rounded-md border text-sm font-medium transition-colors',
-                      isEnabled
-                        ? 'border-purple-500 bg-purple-500/10 text-purple-400'
-                        : 'border-border text-text-secondary hover:border-text-tertiary'
-                    )}
-                  >
-                    {m.label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs text-text-tertiary mt-2">
-              Select which markets the AI strategy trades
-            </p>
+          <div className="p-3 bg-[#080A0C] border border-[#1B2026] text-center text-xs text-[#8B949E]">
+            No strategies active — all automated trading is currently paused.
           </div>
         )}
 
+        {/* Market Selection Section */}
         {showMidMarketMarkets && (
-          <div className="mt-6 pt-4 border-t border-border">
-            <p className="text-sm font-medium text-text-primary mb-3">
-              Mid-Market & Scalp Markets
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="pt-4 border-t border-[#1B2026] space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-[#586069] uppercase tracking-[0.12em] block">
+                  {isAdmin ? 'ADMIN GLOBAL MARKET APPROVAL' : 'AVAILABLE TRADING MARKETS'}
+                </span>
+                <p className="text-xs text-[#8B949E] mt-0.5">
+                  {isAdmin
+                    ? 'Select which markets are globally approved for trading across the platform.'
+                    : 'Activate or deactivate approved markets for your automated strategy.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {SUPPORTED_MARKETS.map((m) => {
-                const isEnabled = strategy.mid_market_markets?.includes(m.id);
-                const config = marketConfigs.find((c) => c.market_type === m.id);
-                const configEnabled = config?.enabled ?? false;
+                const config = configs.find((c) => c.market_type === m.id);
+                const isAdminApproved = config?.enabled ?? true;
+                const isUserActive = strategy.mid_market_markets?.includes(m.id) ?? false;
+
+                if (isAdmin) {
+                  // Admin View: Toggle platform-wide market approval
+                  return (
+                    <div
+                      key={m.id}
+                      className={cn(
+                        'p-2.5 border rounded-xs bg-[#080A0C] flex flex-col justify-between gap-2',
+                        isAdminApproved ? 'border-[#20B2AA]/40' : 'border-[#1B2026] opacity-60'
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold text-[#E1E4E8]">
+                          {m.label}
+                        </span>
+                        <span
+                          className={cn(
+                            'text-[9px] font-bold uppercase px-1.5 py-0.5 border rounded-xs',
+                            isAdminApproved
+                              ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
+                              : 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30'
+                          )}
+                        >
+                          {isAdminApproved ? 'APPROVED' : 'DISABLED'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleAdminGlobalMarketToggle(m.id, isAdminApproved)}
+                        disabled={saving}
+                        className={cn(
+                          'w-full py-1 text-[10px] font-bold uppercase border transition-colors cursor-pointer rounded-xs',
+                          isAdminApproved
+                            ? 'bg-[#E55353]/10 text-[#E55353] border-[#E55353]/30 hover:bg-[#E55353]/20'
+                            : 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/30 hover:bg-[#20B2AA]/20'
+                        )}
+                      >
+                        {isAdminApproved ? 'Disable Market' : 'Approve Market'}
+                      </button>
+                    </div>
+                  );
+                }
+
+                // Regular User View: Can only activate/deactivate admin-approved markets
+                if (!isAdminApproved) {
+                  return (
+                    <div
+                      key={m.id}
+                      className="p-2.5 border border-[#1B2026] bg-[#080A0C]/50 opacity-40 flex items-center justify-between cursor-not-allowed rounded-xs"
+                    >
+                      <span className="font-mono text-xs font-bold text-[#586069]">{m.label}</span>
+                      <span className="text-[9px] font-bold uppercase text-[#E55353] flex items-center gap-1">
+                        <Lock className="h-2.5 w-2.5" /> LOCKED
+                      </span>
+                    </div>
+                  );
+                }
 
                 return (
                   <button
                     key={m.id}
-                    onClick={() => handleMarketToggle(m.id)}
+                    onClick={() => handleUserMarketToggle(m.id)}
                     disabled={saving}
                     className={cn(
-                      'px-3 py-2 rounded-md border text-sm font-medium transition-colors',
-                      isEnabled
-                        ? 'border-accent-primary bg-accent-muted text-accent-primary'
-                        : 'border-border text-text-secondary hover:border-text-tertiary'
+                      'p-2.5 border text-left transition-all cursor-pointer rounded-xs flex items-center justify-between',
+                      isUserActive
+                        ? 'bg-[#16191E] border-[#20B2AA]/50 text-[#E1E4E8]'
+                        : 'bg-[#080A0C] border-[#1B2026] text-[#8B949E] hover:border-[#2A313A] hover:text-[#E1E4E8]'
                     )}
                   >
-                    {m.label}
-                    {isEnabled && configEnabled && (
-                      <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-positive" />
-                    )}
+                    <div>
+                      <span className="font-mono text-xs font-bold block">{m.label}</span>
+                      <span
+                        className={cn(
+                          'text-[9px] font-bold uppercase block mt-0.5',
+                          isUserActive ? 'text-[#20B2AA]' : 'text-[#586069]'
+                        )}
+                      >
+                        {isUserActive ? '● ACTIVE' : '○ INACTIVE'}
+                      </span>
+                    </div>
+                    <span
+                      className={cn(
+                        'w-2 h-2 rounded-full',
+                        isUserActive ? 'bg-[#20B2AA] animate-pulse' : 'bg-[#1B2026]'
+                      )}
+                    />
                   </button>
                 );
               })}
             </div>
-            <p className="text-xs text-text-tertiary mt-2">
-              Select which markets to monitor for mid-market and scalp strategies
-            </p>
           </div>
         )}
-      </CardBody>
-    </Card>
+      </div>
+    </div>
   );
 }

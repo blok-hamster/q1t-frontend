@@ -1,7 +1,5 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { PnLDisplay } from './pnl-display';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import type { Trade } from '@/types/trade';
 import { ArrowUp, ArrowDown } from 'lucide-react';
@@ -16,209 +14,96 @@ export function TradeRow({ trade, variant = 'desktop', onClick }: TradeRowProps)
   const isWin = trade.status === 'CLOSED_WIN';
   const isLoss = trade.status === 'CLOSED_LOSS';
   const isOpen = trade.status === 'OPEN';
-  const isPending = trade.status === 'PENDING';
-  const isLimitPending = trade.status === 'LIMIT_PENDING';
-  const isRejected = trade.status === 'REJECTED';
-  const isMidMarket = trade.strategy === 'mid_market';
+  const pnl = trade.pnl || 0;
 
-  const getStatusBadgeVariant = () => {
-    if (isWin) return 'success';
-    if (isLoss) return 'error';
-    if (isOpen) return 'info';
-    if (isPending) return 'warning';
-    if (isLimitPending) return 'warning';
-    if (isRejected) return 'error';
-    return 'neutral';
-  };
-
-  const getStatusLabel = () => {
-    switch (trade.status) {
-      case 'CLOSED_WIN':
-        return 'Win';
-      case 'CLOSED_LOSS':
-        return 'Loss';
-      case 'OPEN':
-        return 'Open';
-      case 'PENDING':
-        return 'Pending';
-      case 'LIMIT_PENDING':
-        return 'Limit Open';
-      case 'REJECTED':
-        return 'Rejected';
-      case 'DRAFT':
-        return 'Draft';
-      default:
-        return trade.status;
-    }
-  };
-
-  // Mobile card layout
   if (variant === 'mobile') {
     return (
       <div
         onClick={onClick}
-        className="p-4 bg-bg-secondary rounded-lg border border-border hover:border-border-hover transition-colors cursor-pointer"
+        className="p-3 bg-[#0F1215] border border-[#1B2026] text-xs font-mono select-none"
       >
-        {/* Header: Direction + Status */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div
-              className={`p-1.5 rounded-full ${
-                trade.direction === 'UP' ? 'bg-positive/20' : 'bg-negative/20'
-              }`}
-            >
-              {trade.direction === 'UP' ? (
-                <ArrowUp className="h-4 w-4 text-positive" />
-              ) : (
-                <ArrowDown className="h-4 w-4 text-negative" />
-              )}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-text-primary">
-                {trade.market_slug}
-              </p>
-              <p className="text-xs text-text-tertiary">
-                {formatDate(trade.createdAt)}
-              </p>
-            </div>
-          </div>
-          <Badge variant={getStatusBadgeVariant()} size="sm">
-            {getStatusLabel()}
-          </Badge>
+        <div className="flex items-center justify-between mb-2">
+          <span className={`inline-flex items-center gap-1 font-bold ${
+            trade.direction === 'UP' ? 'text-[#20B2AA]' : 'text-[#E55353]'
+          }`}>
+            {trade.direction === 'UP' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+            {trade.direction} {trade.market_slug.toUpperCase()}
+          </span>
+          <span className={`px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-xs border ${
+            isWin ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30' :
+            isLoss ? 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30' :
+            isOpen ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/20' :
+            'bg-[#D99B00]/15 text-[#D99B00] border-[#D99B00]/30'
+          }`}>
+            {trade.status}
+          </span>
         </div>
-
-        {/* Strategy badge */}
-        {isMidMarket && (
-          <div className="mb-2 flex gap-1">
-            <Badge variant="info" size="sm">Mid-Market</Badge>
-            {isLimitPending && trade.limit_order_price && (
-              <Badge variant="warning" size="sm">Limit @ ${trade.limit_order_price.toFixed(2)}</Badge>
-            )}
-          </div>
-        )}
-
-        {/* Details */}
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div>
-            <p className="text-text-tertiary mb-1">Size</p>
-            <p className="font-mono text-text-primary">
-              {isMidMarket && trade.num_shares
-                ? `${trade.num_shares} shares`
-                : formatCurrency(trade.size_usd)}
-            </p>
-          </div>
-          <div>
-            <p className="text-text-tertiary mb-1">Entry Price</p>
-            <p className="font-mono text-text-primary">
-              {isMidMarket && trade.entry_share_price !== null
-                ? `$${trade.entry_share_price.toFixed(2)}/share`
-                : trade.execution_price !== null
-                  ? `$${trade.execution_price.toFixed(2)}`
-                  : '-'}
-            </p>
-          </div>
+        <div className="flex justify-between text-[#8B949E] text-[11px] tabular-nums">
+          <span>{formatDate(trade.createdAt)}</span>
+          <span className={isWin ? 'text-[#20B2AA] font-bold' : isLoss ? 'text-[#E55353] font-bold' : ''}>
+            {isOpen ? '—' : `${pnl > 0 ? '+' : ''}${formatCurrency(pnl)}`}
+          </span>
         </div>
-
-        {/* P&L */}
-        {trade.pnl !== null && (
-          <div className="mt-3 pt-3 border-t border-border">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-text-tertiary">Profit/Loss</p>
-              <PnLDisplay value={trade.pnl} size="md" showIcon />
-            </div>
-          </div>
-        )}
       </div>
     );
   }
 
-  // Desktop table row layout
   return (
     <tr
       onClick={onClick}
-      className="border-b border-border hover:bg-bg-tertiary/50 transition-colors cursor-pointer"
+      className="hover:bg-[#16191E]/50 transition-colors cursor-pointer font-mono text-xs border-b border-[#1B2026]/40"
     >
-      {/* Date/Time */}
-      <td className="px-4 py-3">
-        <p className="text-sm text-text-primary">{formatDate(trade.createdAt)}</p>
+      <td className="px-3 py-2 text-[#8B949E]">
+        {formatDate(trade.createdAt)}
       </td>
 
-      {/* Market */}
-      <td className="px-4 py-3">
-        <p className="text-sm text-text-primary">{trade.market_slug}</p>
+      <td className="px-3 py-2 text-[#E1E4E8] font-bold">
+        {trade.market_slug.toUpperCase()}
       </td>
 
-      {/* Direction */}
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div
-            className={`p-1 rounded ${
-              trade.direction === 'UP' ? 'bg-positive/20' : 'bg-negative/20'
-            }`}
-          >
-            {trade.direction === 'UP' ? (
-              <ArrowUp className="h-3 w-3 text-positive" />
-            ) : (
-              <ArrowDown className="h-3 w-3 text-negative" />
-            )}
-          </div>
-          <span className="text-sm font-medium text-text-primary">
-            {trade.direction}
-          </span>
-        </div>
+      <td className="px-3 py-2">
+        <span className={`inline-flex items-center gap-1 font-bold ${
+          trade.direction === 'UP' ? 'text-[#20B2AA]' : 'text-[#E55353]'
+        }`}>
+          {trade.direction === 'UP' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+          {trade.direction}
+        </span>
       </td>
 
-      {/* Size */}
-      <td className="px-4 py-3">
-        <p className="text-sm font-mono text-text-primary">
-          {isMidMarket && trade.num_shares
-            ? `${trade.num_shares} shares`
-            : formatCurrency(trade.size_usd)}
-        </p>
+      <td className="px-3 py-2 text-right tabular-nums text-[#8B949E]">
+        {trade.num_shares ? `${trade.num_shares} SH` : formatCurrency(trade.size_usd)}
       </td>
 
-      {/* Entry Price */}
-      <td className="px-4 py-3">
-        <p className="text-sm font-mono text-text-primary">
-          {isMidMarket && trade.entry_share_price !== null
-            ? `$${trade.entry_share_price.toFixed(2)}/share`
-            : trade.execution_price !== null
-              ? `$${trade.execution_price.toFixed(2)}`
-              : '-'}
-        </p>
+      <td className="px-3 py-2 text-right tabular-nums text-[#E1E4E8]">
+        {trade.entry_share_price !== null
+          ? `$${trade.entry_share_price.toFixed(2)}`
+          : trade.execution_price !== null
+          ? `$${trade.execution_price.toFixed(2)}`
+          : '—'}
       </td>
 
-      {/* Status */}
-      <td className="px-4 py-3">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-1.5">
-            <Badge variant={getStatusBadgeVariant()} size="sm">
-              {getStatusLabel()}
-            </Badge>
-            {isMidMarket && (
-              <Badge variant="neutral" size="sm">MM</Badge>
-            )}
-          </div>
-          {isLimitPending && trade.limit_order_price && (
-            <span className="text-xs text-text-tertiary font-mono">
-              Limit @ ${trade.limit_order_price.toFixed(2)}
-            </span>
-          )}
-          {trade.computed_stop_loss && (isOpen || isLimitPending) && (
-            <span className="text-xs text-text-tertiary font-mono">
-              Stop: ${trade.computed_stop_loss.toFixed(2)}
-              {trade.computed_rr_ratio && ` | R:R ${trade.computed_rr_ratio.toFixed(2)}`}
-            </span>
-          )}
-        </div>
+      <td className="px-3 py-2 text-right">
+        <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-xs border ${
+          isWin
+            ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
+            : isLoss
+            ? 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30'
+            : isOpen
+            ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/20'
+            : 'bg-[#D99B00]/15 text-[#D99B00] border-[#D99B00]/30'
+        }`}>
+          {trade.status}
+        </span>
       </td>
 
-      {/* P&L */}
-      <td className="px-4 py-3">
-        {trade.pnl !== null ? (
-          <PnLDisplay value={trade.pnl} size="sm" />
+      <td className="px-3 py-2 text-right tabular-nums font-bold">
+        {isOpen ? (
+          <span className="text-[#586069]">—</span>
         ) : (
-          <span className="text-sm text-text-tertiary">-</span>
+          <span className={isWin ? 'text-[#20B2AA]' : isLoss ? 'text-[#E55353]' : 'text-[#8B949E]'}>
+            {pnl > 0 ? '+' : ''}
+            {formatCurrency(pnl)}
+          </span>
         )}
       </td>
     </tr>

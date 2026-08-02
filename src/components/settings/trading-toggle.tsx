@@ -1,18 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { settingsApi } from '@/lib/api';
 import { toast } from '@/context/toast-context';
-import {
-  Bot,
-  AlertCircle,
-  Activity,
-  TrendingUp,
-  CheckCircle,
-} from 'lucide-react';
+import { Bot, AlertCircle, TrendingUp, CheckCircle } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 
 interface TradingToggleProps {
   onUpdate?: () => void;
@@ -60,7 +53,6 @@ export function TradingToggle({ onUpdate }: TradingToggleProps) {
       onUpdate?.();
     } catch (error: any) {
       toast.error(error.message || 'Failed to toggle trading');
-      // Revert optimistic update
       await fetchStatus();
     } finally {
       setLoading(false);
@@ -69,84 +61,75 @@ export function TradingToggle({ onUpdate }: TradingToggleProps) {
 
   if (checking) {
     return (
-      <Card padding="lg">
-        <div className="animate-pulse">
-          <div className="h-6 bg-bg-tertiary rounded w-1/3 mb-4" />
-          <div className="h-4 bg-bg-tertiary rounded w-2/3" />
-        </div>
-      </Card>
+      <div className="bg-[#0F1215] border border-[#1B2026] p-4 select-none font-mono animate-pulse">
+        <div className="h-4 bg-[#1B2026] w-1/3 mb-2" />
+        <div className="h-3 bg-[#1B2026] w-2/3" />
+      </div>
     );
   }
 
   return (
-    <Card padding="lg">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Bot className="h-5 w-5 text-accent-primary" />
-            <div>
-              <h3 className="text-lg font-semibold text-text-primary">
-                Automated Trading
-              </h3>
-              <p className="text-sm text-text-secondary mt-1">
-                {isActive
-                  ? 'AI is actively trading on your behalf'
-                  : 'Enable AI to execute trades automatically'}
-              </p>
-            </div>
+    <div className="bg-[#0F1215] border border-[#1B2026] select-none font-mono">
+      {/* Header */}
+      <div className="p-3.5 border-b border-[#1B2026] flex items-center justify-between bg-[#16191E]/60">
+        <div className="flex items-center gap-2">
+          <Bot className="h-4 w-4 text-[#20B2AA]" />
+          <div>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#586069] block">
+              EXECUTION ENGINE
+            </span>
+            <h3 className="font-mono text-xs font-bold text-[#E1E4E8] mt-0.5 uppercase">
+              AUTOMATED TRADING CONTROL
+            </h3>
           </div>
-          <Badge variant={isActive ? 'success' : 'neutral'}>
-            {isActive ? (
-              <>
-                <Activity className="h-3 w-3 mr-1" />
-                ACTIVE
-              </>
-            ) : (
-              'INACTIVE'
-            )}
-          </Badge>
         </div>
-      </CardHeader>
+        <span
+          className={cn(
+            'font-mono text-[10px] font-bold uppercase px-2 py-0.5 border rounded-xs',
+            isActive
+              ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
+              : 'bg-[#586069]/15 text-[#586069] border-[#586069]/30'
+          )}
+        >
+          {isActive ? '● ACTIVE' : '○ INACTIVE'}
+        </span>
+      </div>
 
-      <CardBody className="space-y-4">
+      <div className="p-4 space-y-4 font-mono text-xs">
         {/* Warning if no private key */}
         {!hasPrivateKey && (
-          <div className="p-4 bg-negative/10 border border-negative/30 rounded-lg">
-            <div className="flex gap-3">
-              <AlertCircle className="h-5 w-5 text-negative flex-shrink-0" />
-              <div className="text-sm">
-                <p className="font-medium text-text-primary mb-1">
-                  ⚠️ Private Key Required
+          <div className="p-3 bg-[#E55353]/10 border border-[#E55353]/30 rounded-xs">
+            <div className="flex gap-2.5 items-start">
+              <AlertCircle className="h-4 w-4 text-[#E55353] shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-[#E55353] uppercase text-[10px] tracking-wide">
+                  PRIVATE KEY REQUIRED
                 </p>
-                <p className="text-text-secondary text-xs">
-                  You need to add your private key before enabling automated
-                  trading. Please add your key in the section above.
+                <p className="text-[#8B949E] text-xs mt-0.5">
+                  You need to configure your private key before enabling automated execution.
                 </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Toggle Switch */}
-        <div className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg">
+        {/* Toggle Control Bar */}
+        <div className="flex items-center justify-between p-3 bg-[#080A0C] border border-[#1B2026] rounded-xs">
           <div className="flex items-center gap-3">
             <div
-              className={`p-2 rounded-full ${
-                isActive ? 'bg-positive/20' : 'bg-text-tertiary/20'
-              }`}
+              className={cn(
+                'p-2 rounded-xs border',
+                isActive
+                  ? 'bg-[#20B2AA]/10 border-[#20B2AA]/30 text-[#20B2AA]'
+                  : 'bg-[#16191E] border-[#1B2026] text-[#586069]'
+              )}
             >
-              <TrendingUp
-                className={`h-5 w-5 ${
-                  isActive ? 'text-positive' : 'text-text-tertiary'
-                }`}
-              />
+              <TrendingUp className="h-4 w-4" />
             </div>
             <div>
-              <p className="text-sm font-medium text-text-primary">
-                Active Trading
-              </p>
-              <p className="text-xs text-text-secondary">
-                {isActive ? 'Currently enabled' : 'Currently disabled'}
+              <p className="text-xs font-bold text-[#E1E4E8]">AUTOMATED EXECUTION ENGINE</p>
+              <p className="text-[10px] text-[#8B949E] uppercase font-bold mt-0.5">
+                {isActive ? 'AUTOMATED TRADING IS CURRENTLY RUNNING' : 'AUTOMATED TRADING IS PAUSED'}
               </p>
             </div>
           </div>
@@ -158,52 +141,28 @@ export function TradingToggle({ onUpdate }: TradingToggleProps) {
           />
         </div>
 
-        {/* Status Information */}
+        {/* Active Info Banner */}
         {isActive && hasPrivateKey && (
-          <div className="p-4 bg-positive/10 border border-positive/30 rounded-lg">
-            <div className="flex gap-3">
-              <CheckCircle className="h-5 w-5 text-positive flex-shrink-0" />
-              <div className="text-sm">
-                <p className="font-medium text-text-primary mb-1">
-                  ✅ Trading Active
+          <div className="p-3 bg-[#20B2AA]/10 border border-[#20B2AA]/30 rounded-xs">
+            <div className="flex gap-2.5 items-start">
+              <CheckCircle className="h-4 w-4 text-[#20B2AA] shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-[#20B2AA] uppercase text-[10px] tracking-wide">
+                  AUTOMATED TRADING ONLINE
                 </p>
-                <p className="text-text-secondary text-xs mb-2">
-                  The AI will automatically execute trades when high-confidence
-                  signals are generated based on your risk configuration.
+                <p className="text-[#8B949E] text-xs mt-0.5">
+                  The execution engine is continuously evaluating window signals and submitting FOK orders per your active configurations.
                 </p>
                 {walletAddress && (
-                  <p className="text-text-tertiary text-xs font-mono">
-                    Wallet: {walletAddress.slice(0, 6)}...
-                    {walletAddress.slice(-4)}
+                  <p className="text-[#586069] text-[10px] font-mono font-bold uppercase mt-1">
+                    ACTIVE WALLET: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                   </p>
                 )}
               </div>
             </div>
           </div>
         )}
-
-        {/* Info about what happens when enabled */}
-        {!isActive && hasPrivateKey && (
-          <div className="p-4 bg-accent-muted rounded-lg border border-accent-primary/30">
-            <div className="flex gap-3">
-              <Bot className="h-5 w-5 text-accent-primary flex-shrink-0" />
-              <div className="text-sm">
-                <p className="font-medium text-text-primary mb-1">
-                  How It Works
-                </p>
-                <ul className="text-text-secondary text-xs space-y-1 list-disc list-inside">
-                  <li>AI analyzes market data every 5 minutes</li>
-                  <li>
-                    Trades only execute when confidence exceeds your minimum
-                  </li>
-                  <li>Position sizes respect your max bet % setting</li>
-                  <li>All trades are visible in the Trades page</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        )}
-      </CardBody>
-    </Card>
+      </div>
+    </div>
   );
 }

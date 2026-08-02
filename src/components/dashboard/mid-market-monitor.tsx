@@ -249,26 +249,32 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
     : 0;
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-accent-primary" />
-            <h3 className="text-sm font-semibold text-text-primary">Mid-Market Momentum</h3>
-          </div>
-          <Badge variant={isLive ? 'success' : enabled ? 'warning' : 'neutral'} size="sm">
-            {isLive ? (
-              <span className="flex items-center gap-1"><Radio className="h-3 w-3 animate-pulse" /> LIVE</span>
-            ) : enabled ? (
-              <span className="flex items-center gap-1"><Radio className="h-3 w-3" /> ENABLED</span>
-            ) : (
-              <span className="flex items-center gap-1"><CircleOff className="h-3 w-3" /> OFF</span>
-            )}
-          </Badge>
+    <div className="bg-[#0F1215] border border-[#1B2026] select-none">
+      <div className="p-3.5 border-b border-[#1B2026] flex items-center justify-between bg-[#16191E]/60">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-[#20B2AA]" />
+          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#586069]">
+            ACTIVE MID-MARKET MONITOR
+          </span>
         </div>
-      </CardHeader>
+        <div className="flex items-center gap-2 font-mono text-[10px]">
+          {isLive ? (
+            <span className="flex items-center gap-1 text-[#20B2AA] font-bold px-2 py-0.5 bg-[#20B2AA]/10 border border-[#20B2AA]/30">
+              <Radio className="h-3 w-3 animate-pulse" /> LIVE STREAM
+            </span>
+          ) : enabled ? (
+            <span className="flex items-center gap-1 text-[#D99B00] font-bold px-2 py-0.5 bg-[#D99B00]/10 border border-[#D99B00]/30">
+              <Radio className="h-3 w-3" /> WAITING
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-[#586069] font-bold px-2 py-0.5 bg-[#16191E] border border-[#1B2026]">
+              <CircleOff className="h-3 w-3" /> ENGINE INACTIVE
+            </span>
+          )}
+        </div>
+      </div>
 
-      <CardBody className="space-y-4">
+      <div className="p-4 space-y-4 font-mono text-xs">
         {/* Status */}
         <div className="flex items-center justify-between text-[10px] uppercase tracking-wider font-semibold">
           <div className="flex items-center gap-1.5">
@@ -383,8 +389,8 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
             </p>
           </div>
         </div>
-      </CardBody>
-    </Card>
+      </div>
+    </div>
   );
 });
 

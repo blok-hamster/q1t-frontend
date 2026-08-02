@@ -37,19 +37,19 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const hasSuccess = Boolean(success);
 
     return (
-      <div className={cn('flex flex-col gap-1', fullWidth && 'w-full')}>
+      <div className={cn('flex flex-col gap-1 font-mono', fullWidth && 'w-full')}>
         {label && (
-          <label className="text-sm font-medium text-text-primary">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[#586069]">
             {label}
             {props.required && (
-              <span className="text-negative ml-1">*</span>
+              <span className="text-[#E55353] ml-1">*</span>
             )}
           </label>
         )}
 
         <div className="relative">
           {leftIcon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary">
+            <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#586069]">
               {leftIcon}
             </div>
           )}
@@ -58,58 +58,56 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             type={inputType}
             className={cn(
-              'w-full h-10 px-3 rounded-md',
-              'bg-bg-secondary border border-border',
-              'text-text-primary placeholder:text-text-tertiary',
-              'transition-colors duration-fast',
-              'focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              leftIcon && 'pl-10',
-              (rightIcon || isPassword || hasError || hasSuccess) && 'pr-10',
-              hasError && 'border-negative focus:border-negative focus:ring-negative',
-              hasSuccess && 'border-positive focus:border-positive focus:ring-positive',
+              'w-full h-8 px-3 rounded-xs text-xs font-mono',
+              'bg-[#0F1215] border border-[#1B2026]',
+              'text-[#E1E4E8] placeholder:text-[#586069]',
+              'transition-colors duration-150',
+              'focus:outline-none focus:border-[#20B2AA] focus:ring-1 focus:ring-[#20B2AA]',
+              'disabled:opacity-40 disabled:cursor-not-allowed',
+              leftIcon && 'pl-8',
+              (rightIcon || isPassword || hasError || hasSuccess) && 'pr-8',
+              hasError && 'border-[#E55353] focus:border-[#E55353] focus:ring-[#E55353]',
+              hasSuccess && 'border-[#20B2AA] focus:border-[#20B2AA] focus:ring-[#20B2AA]',
               className
             )}
             disabled={disabled}
             {...props}
           />
 
-          {/* Right icons */}
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
             {hasError && (
-              <AlertCircle className="h-4 w-4 text-negative" />
+              <AlertCircle className="h-3.5 w-3.5 text-[#E55353]" />
             )}
             {hasSuccess && (
-              <CheckCircle2 className="h-4 w-4 text-positive" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-[#20B2AA]" />
             )}
             {isPassword && (
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="text-text-tertiary hover:text-text-primary transition-colors"
+                className="text-[#586069] hover:text-[#E1E4E8] transition-colors"
                 tabIndex={-1}
               >
                 {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
+                  <EyeOff className="h-3.5 w-3.5" />
                 ) : (
-                  <Eye className="h-4 w-4" />
+                  <Eye className="h-3.5 w-3.5" />
                 )}
               </button>
             )}
             {rightIcon && !isPassword && !hasError && !hasSuccess && (
-              <div className="text-text-tertiary">{rightIcon}</div>
+              <div className="text-[#586069]">{rightIcon}</div>
             )}
           </div>
         </div>
 
-        {/* Helper text / Error / Success messages */}
         {(error || success || helperText) && (
           <p
             className={cn(
-              'text-xs',
-              hasError && 'text-negative',
-              hasSuccess && 'text-positive',
-              !hasError && !hasSuccess && 'text-text-tertiary'
+              'text-[10px] font-mono',
+              hasError && 'text-[#E55353]',
+              hasSuccess && 'text-[#20B2AA]',
+              !hasError && !hasSuccess && 'text-[#586069]'
             )}
           >
             {error || success || helperText}
@@ -122,9 +120,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
 Input.displayName = 'Input';
 
-/**
- * Textarea component
- */
 export interface TextareaProps
   extends InputHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
@@ -140,7 +135,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       label,
       error,
       helperText,
-      rows = 4,
+      rows = 3,
       disabled,
       ...props
     },
@@ -149,12 +144,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     const hasError = Boolean(error);
 
     return (
-      <div className="flex flex-col gap-1 w-full">
+      <div className="flex flex-col gap-1 w-full font-mono">
         {label && (
-          <label className="text-sm font-medium text-text-primary">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[#586069]">
             {label}
             {props.required && (
-              <span className="text-negative ml-1">*</span>
+              <span className="text-[#E55353] ml-1">*</span>
             )}
           </label>
         )}
@@ -163,14 +158,14 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           rows={rows}
           className={cn(
-            'w-full px-3 py-2 rounded-md',
-            'bg-bg-secondary border border-border',
-            'text-text-primary placeholder:text-text-tertiary',
-            'transition-colors duration-fast',
-            'focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
+            'w-full p-2.5 rounded-xs text-xs font-mono',
+            'bg-[#0F1215] border border-[#1B2026]',
+            'text-[#E1E4E8] placeholder:text-[#586069]',
+            'transition-colors duration-150',
+            'focus:outline-none focus:border-[#20B2AA] focus:ring-1 focus:ring-[#20B2AA]',
+            'disabled:opacity-40 disabled:cursor-not-allowed',
             'resize-y',
-            hasError && 'border-negative focus:border-negative focus:ring-negative',
+            hasError && 'border-[#E55353] focus:border-[#E55353]',
             className
           )}
           disabled={disabled}
@@ -180,8 +175,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         {(error || helperText) && (
           <p
             className={cn(
-              'text-xs',
-              hasError ? 'text-negative' : 'text-text-tertiary'
+              'text-[10px] font-mono',
+              hasError ? 'text-[#E55353]' : 'text-[#586069]'
             )}
           >
             {error || helperText}

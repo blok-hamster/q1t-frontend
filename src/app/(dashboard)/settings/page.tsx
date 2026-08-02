@@ -3,14 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { settingsApi } from '@/lib/api';
-import { RiskConfigPanel } from '@/components/settings/risk-config-panel';
 import { StrategySelectionPanel } from '@/components/settings/strategy-selection-panel';
 import { SecuritySettings } from '@/components/settings/security-settings';
 import { PrivateKeySetup } from '@/components/settings/private-key-setup';
 import { TradingToggle } from '@/components/settings/trading-toggle';
-import { AutoClaimToggle } from '@/components/settings/auto-claim-toggle';
 import { PaperBalancePanel } from '@/components/settings/paper-balance-panel';
-import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Loading } from '@/components/ui/loading';
 import { toast } from '@/context/toast-context';
 import { User } from 'lucide-react';
@@ -21,30 +18,21 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchSettings = async () => {
+    const fetchData = async () => {
       try {
         const data = await settingsApi.getSettings();
         setSettings(data);
       } catch (error) {
-        toast.error('Failed to load settings');
-        console.error(error);
+        toast.error('Failed to load system preferences');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSettings();
+    fetchData();
   }, []);
 
-  const handleRiskConfigUpdate = (newConfig: any) => {
-    setSettings((prev: any) => ({
-      ...prev,
-      riskConfig: newConfig,
-    }));
-  };
-
   const handleSecurityUpdate = async () => {
-    // Refresh settings after security changes
     try {
       const data = await settingsApi.getSettings();
       setSettings(data);
@@ -54,61 +42,44 @@ export default function SettingsPage() {
   };
 
   if (loading) {
-    return <Loading text="Loading settings..." />;
+    return <Loading text="Loading system preferences..." />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-text-primary">Settings</h1>
-        <p className="text-sm text-text-secondary mt-1">
-          Manage your account and risk preferences
-        </p>
+    <div className="space-y-4 max-w-[1600px] mx-auto px-4 py-4 font-mono">
+      {/* Account Information Card */}
+      <div className="bg-[#0F1215] border border-[#1B2026] p-4 space-y-4">
+        <div className="flex items-center gap-2 pb-2 border-b border-[#1B2026]">
+          <User className="h-4 w-4 text-[#20B2AA]" />
+          <h3 className="text-xs font-mono font-bold text-[#E1E4E8] uppercase tracking-wide">
+            ACCOUNT CREDENTIALS & SESSIONS
+          </h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div>
+            <p className="text-[10px] text-[#586069] uppercase font-bold mb-1">
+              EMAIL ADDRESS
+            </p>
+            <p className="text-[#E1E4E8] font-bold">
+              {settings?.email || user?.email || 'Not available'}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-[#586069] uppercase font-bold mb-1">
+              ACCOUNT REGISTERED
+            </p>
+            <p className="text-[#E1E4E8] font-bold">
+              {user?.createdAt
+                ? new Date(user.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  }).toUpperCase()
+                : 'NOT AVAILABLE'}
+            </p>
+          </div>
+        </div>
       </div>
-
-      {/* Account Information */}
-      <Card padding="lg">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <User className="h-5 w-5 text-accent-primary" />
-            <div>
-              <h3 className="text-lg font-semibold text-text-primary">
-                Account Information
-              </h3>
-              <p className="text-sm text-text-secondary mt-1">
-                Your account details
-              </p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <p className="text-xs text-text-tertiary uppercase tracking-wide mb-2">
-                Email Address
-              </p>
-              <p className="text-sm font-medium text-text-primary">
-                {settings?.email || user?.email || 'Not available'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-text-tertiary uppercase tracking-wide mb-2">
-                Member Since
-              </p>
-              <p className="text-sm font-medium text-text-primary">
-                {user?.createdAt
-                  ? new Date(user.createdAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })
-                  : 'Not available'}
-              </p>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
 
       {/* Private Key Setup */}
       <PrivateKeySetup
@@ -119,13 +90,6 @@ export default function SettingsPage() {
       {/* Trading Toggle */}
       <TradingToggle onUpdate={handleSecurityUpdate} />
 
-      {/* Auto-Claim Toggle */}
-      <AutoClaimToggle
-        initialEnabled={settings?.auto_claim ?? true}
-        hasPrivateKey={settings?.hasPrivateKey || false}
-        onUpdate={handleSecurityUpdate}
-      />
-
       {/* Paper Trading Balance */}
       <PaperBalancePanel
         initialBalance={settings?.paperBalance ?? 1000}
@@ -134,22 +98,9 @@ export default function SettingsPage() {
 
       {/* Strategy Selection */}
       <StrategySelectionPanel
-        initialStrategy={settings?.strategySelection || { active_strategies: ['mid_market', 'scalp'], mid_market_markets: ['btc-5m'] }}
+        initialStrategy={settings?.strategySelection || { active_strategies: ['mid_market'], mid_market_markets: ['btc-5m'] }}
         marketConfigs={settings?.marketConfigs || []}
         onUpdate={(newStrategy) => setSettings((prev: any) => ({ ...prev, strategySelection: newStrategy }))}
-      />
-
-      {/* Risk Configuration */}
-      <RiskConfigPanel
-        initialConfig={settings?.riskConfig || {
-          max_bet_pct: 0.05,
-          min_confidence: 0.60,
-          use_kelly: true,
-          use_adaptive_sizing: false,
-          adaptive_min_shares: 5,
-          adaptive_max_shares: 200,
-        }}
-        onSave={handleRiskConfigUpdate}
       />
 
       {/* Security Settings */}

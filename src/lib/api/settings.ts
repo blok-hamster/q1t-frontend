@@ -38,7 +38,14 @@ export const settingsApi = {
    * Store private key in Vault with wallet type support
    */
   storePrivateKey: async (
-    private_key: string,
+    privateKeyOrOptions:
+      | string
+      | {
+          private_key: string;
+          wallet_type?: 'eoa' | 'proxy';
+          polymarket_funding_address?: string;
+          totp_code?: string;
+        },
     wallet_type: 'eoa' | 'proxy' = 'eoa',
     polymarket_funding_address?: string,
     totp_code?: string
@@ -50,8 +57,11 @@ export const settingsApi = {
     polymarket_funding_address?: string;
     requires_pol: boolean;
   }> => {
+    if (typeof privateKeyOrOptions === 'object') {
+      return api.post(API_ENDPOINTS.SETTINGS_PRIVATE_KEY, privateKeyOrOptions);
+    }
     return api.post(API_ENDPOINTS.SETTINGS_PRIVATE_KEY, {
-      private_key,
+      private_key: privateKeyOrOptions,
       wallet_type,
       ...(polymarket_funding_address && { polymarket_funding_address }),
       ...(totp_code && { totp_code }),
@@ -64,7 +74,17 @@ export const settingsApi = {
   checkPrivateKey: async (): Promise<{
     hasPrivateKey: boolean;
     wallet_address?: string;
-    wallet_type?: string;
+    wallet_type?: 'eoa' | 'proxy';
+    proxy_wallet_address?: string;
+    polymarket_funding_address?: string;
+  }> => {
+    return api.get(API_ENDPOINTS.SETTINGS_PRIVATE_KEY_CHECK);
+  },
+
+  hasPrivateKey: async (): Promise<{
+    hasPrivateKey: boolean;
+    wallet_address?: string;
+    wallet_type?: 'eoa' | 'proxy';
     proxy_wallet_address?: string;
     polymarket_funding_address?: string;
   }> => {

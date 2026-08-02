@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { Modal } from '@/components/ui/modal';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { authApi } from '@/lib/api';
 import { toast } from '@/context/toast-context';
 import { Lock } from 'lucide-react';
@@ -29,7 +27,6 @@ export function PasswordChangeForm({
     e.preventDefault();
     setError('');
 
-    // Validation
     if (newPassword.length < 8) {
       setError('Password must be at least 8 characters');
       return;
@@ -65,90 +62,73 @@ export function PasswordChangeForm({
     onClose();
   };
 
-  const getPasswordStrength = () => {
-    if (newPassword.length === 0) return null;
-    if (newPassword.length < 8) return { label: 'Too short', color: 'text-negative' };
-    if (newPassword.length < 12) return { label: 'Fair', color: 'text-neutral' };
-    if (!/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-      return { label: 'Good', color: 'text-positive' };
-    }
-    return { label: 'Strong', color: 'text-positive' };
-  };
-
-  const strength = getPasswordStrength();
-
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Change Password" size="md">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* New Password */}
-        <Input
-          type="password"
-          label="New Password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="Enter new password"
-          leftIcon={<Lock className="h-4 w-4" />}
-          autoComplete="new-password"
-        />
-
-        {/* Password strength */}
-        {strength && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-text-tertiary">Password strength:</span>
-            <span className={`font-medium ${strength.color}`}>{strength.label}</span>
+    <Modal isOpen={isOpen} onClose={handleClose} title="CHANGE PASSWORD" size="md">
+      <form onSubmit={handleSubmit} className="space-y-4 font-mono text-xs select-none">
+        <div className="space-y-1">
+          <label className="text-[10px] text-[#586069] font-bold uppercase tracking-[0.12em]">
+            NEW PASSWORD
+          </label>
+          <div className="relative">
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Min. 8 characters..."
+              className="w-full px-3 py-2 bg-[#080A0C] border border-[#1B2026] text-[#E1E4E8] font-mono text-xs focus:border-[#20B2AA] focus:outline-none rounded-xs"
+            />
           </div>
-        )}
+        </div>
 
-        {/* Confirm Password */}
-        <Input
-          type="password"
-          label="Confirm New Password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          placeholder="Confirm new password"
-          leftIcon={<Lock className="h-4 w-4" />}
-          autoComplete="new-password"
-        />
+        <div className="space-y-1">
+          <label className="text-[10px] text-[#586069] font-bold uppercase tracking-[0.12em]">
+            CONFIRM NEW PASSWORD
+          </label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Re-enter new password..."
+            className="w-full px-3 py-2 bg-[#080A0C] border border-[#1B2026] text-[#E1E4E8] font-mono text-xs focus:border-[#20B2AA] focus:outline-none rounded-xs"
+          />
+        </div>
 
-        {/* 2FA Code */}
-        <Input
-          type="text"
-          label={requires2FA ? "2FA Code (Required)" : "2FA Code (If Enabled)"}
-          value={totpCode}
-          onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          placeholder="Enter 6-digit code"
-          helperText={requires2FA ? "Enter your 6-digit 2FA code" : "Leave blank if 2FA is not enabled"}
-          maxLength={6}
-          required={requires2FA}
-          fullWidth
-        />
+        <div className="space-y-1">
+          <label className="text-[10px] text-[#586069] font-bold uppercase tracking-[0.12em]">
+            {requires2FA ? '2FA CODE (REQUIRED)' : '2FA CODE (IF ENABLED)'}
+          </label>
+          <input
+            type="text"
+            value={totpCode}
+            onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="6-digit code..."
+            maxLength={6}
+            className="w-full px-3 py-2 bg-[#080A0C] border border-[#1B2026] text-[#E1E4E8] font-mono text-xs focus:border-[#20B2AA] focus:outline-none rounded-xs"
+          />
+        </div>
 
-        {/* Error message */}
         {error && (
-          <div className="p-3 bg-negative/10 border border-negative/30 rounded-lg text-sm text-negative">
+          <div className="p-2.5 bg-[#E55353]/10 border border-[#E55353]/30 text-[#E55353] text-xs font-bold rounded-xs">
             {error}
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-4">
-          <Button
+        <div className="flex gap-2 pt-2">
+          <button
             type="button"
-            variant="secondary"
             onClick={handleClose}
             disabled={loading}
-            className="flex-1"
+            className="flex-1 py-1.5 bg-[#16191E] text-[#8B949E] border border-[#1B2026] font-bold uppercase hover:text-[#E1E4E8] transition-colors rounded-xs"
           >
             Cancel
-          </Button>
-          <Button
+          </button>
+          <button
             type="submit"
-            variant="primary"
-            loading={loading}
-            className="flex-1"
+            disabled={loading || !newPassword || !confirmPassword}
+            className="flex-1 py-1.5 bg-[#20B2AA]/10 text-[#20B2AA] border border-[#20B2AA]/30 font-bold uppercase hover:bg-[#20B2AA]/20 transition-colors disabled:opacity-40 rounded-xs"
           >
-            Change Password
-          </Button>
+            {loading ? 'Updating...' : 'Update Password'}
+          </button>
         </div>
       </form>
     </Modal>

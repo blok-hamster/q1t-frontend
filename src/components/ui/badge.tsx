@@ -12,7 +12,7 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
     {
       className,
       variant = 'default',
-      size = 'md',
+      size = 'sm',
       dot = false,
       children,
       ...props
@@ -20,30 +20,24 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
     ref
   ) => {
     const baseStyles = [
-      'inline-flex items-center gap-1.5',
-      'rounded-md font-medium',
-      'whitespace-nowrap',
+      'inline-flex items-center gap-1',
+      'rounded-xs font-mono font-bold uppercase tracking-wider',
+      'whitespace-nowrap select-none border',
     ];
 
     const variants = {
-      success: 'bg-positive/20 text-positive',
-      error: 'bg-negative/20 text-negative',
-      warning: 'bg-neutral/20 text-neutral',
-      info: 'bg-accent-muted text-accent-primary',
-      neutral: 'bg-white/10 text-text-secondary',
-      default: 'bg-bg-tertiary text-text-primary border border-border',
+      success: 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30',
+      error: 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30',
+      warning: 'bg-[#D99B00]/15 text-[#D99B00] border-[#D99B00]/30',
+      info: 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/20',
+      neutral: 'bg-[#16191E] text-[#8B949E] border-[#1B2026]',
+      default: 'bg-[#16191E] text-[#E1E4E8] border-[#1B2026]',
     };
 
     const sizes = {
-      sm: 'px-2 py-0.5 text-xs',
-      md: 'px-2.5 py-1 text-sm',
-      lg: 'px-3 py-1.5 text-base',
-    };
-
-    const dotSizes = {
-      sm: 'w-1.5 h-1.5',
-      md: 'w-2 h-2',
-      lg: 'w-2.5 h-2.5',
+      sm: 'px-1.5 py-0.5 text-[9px]',
+      md: 'px-2 py-0.5 text-[10px]',
+      lg: 'px-2.5 py-1 text-xs',
     };
 
     return (
@@ -53,12 +47,7 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
         {...props}
       >
         {dot && (
-          <span
-            className={cn(
-              'rounded-full bg-current',
-              dotSizes[size]
-            )}
-          />
+          <span className="w-1.5 h-1.5 rounded-full bg-current" />
         )}
         {children}
       </span>

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Syne } from 'next/font/google';
 import './globals.css';
 import { ErrorBoundaryProvider } from '@/components/providers/error-boundary-provider';
 import { AuthProvider } from '@/context/auth-context';
@@ -8,6 +8,7 @@ import { ToastProvider } from '@/context/toast-context';
 import { APP_NAME } from '@/lib/constants';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const syne = Syne({ subsets: ['latin'], weight: ['400', '500', '600', '700', '800'], variable: '--font-syne' });
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -29,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${syne.variable}`}>
       <body>
         <ErrorBoundaryProvider>
           <AuthProvider>

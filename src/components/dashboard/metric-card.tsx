@@ -1,7 +1,6 @@
 'use client';
 
 import { memo } from 'react';
-import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils/cn';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -27,7 +26,6 @@ export const MetricCard = memo(function MetricCard({
   className,
   loading = false,
 }: MetricCardProps) {
-  // Auto-detect trend from change if not provided
   const determinedTrend = trend || (change !== undefined
     ? change > 0
       ? 'up'
@@ -45,57 +43,48 @@ export const MetricCard = memo(function MetricCard({
 
   if (loading) {
     return (
-      <Card className={cn('animate-pulse', className)}>
-        <div className="p-4 space-y-3">
-          <div className="h-4 bg-bg-tertiary rounded w-1/2" />
-          <div className="h-8 bg-bg-tertiary rounded w-3/4" />
-          <div className="h-3 bg-bg-tertiary rounded w-1/3" />
-        </div>
-      </Card>
+      <div className={cn('bg-[#0F1215] border border-[#1B2026] p-3.5 space-y-2 animate-pulse', className)}>
+        <div className="h-3 bg-[#16191E] w-1/2" />
+        <div className="h-6 bg-[#16191E] w-3/4" />
+        <div className="h-2.5 bg-[#16191E] w-1/3" />
+      </div>
     );
   }
 
   return (
-    <Card className={cn('hover:border-border-hover transition-colors', className)}>
-      <div className="p-4 space-y-3">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs uppercase tracking-wide text-text-tertiary font-medium">
-            {title}
-          </h3>
-          {Icon && (
-            <Icon className="h-4 w-4 text-text-tertiary" />
+    <div className={cn('bg-[#0F1215] border border-[#1B2026] p-3.5 space-y-1.5', className)}>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-[#586069]">
+          {title}
+        </p>
+        {Icon && <Icon className="h-3.5 w-3.5 text-[#586069]" />}
+      </div>
+
+      <p className="text-xl sm:text-2xl font-mono font-bold text-[#E1E4E8] tabular-nums">
+        {value}
+      </p>
+
+      {change !== undefined && (
+        <div className="flex items-center gap-1.5 font-mono text-[11px]">
+          <span
+            className={cn(
+              'inline-flex items-center gap-0.5 font-bold',
+              determinedTrend === 'up' && 'text-[#20B2AA]',
+              determinedTrend === 'down' && 'text-[#E55353]',
+              determinedTrend === 'neutral' && 'text-[#586069]'
+            )}
+          >
+            <TrendIcon className="h-3 w-3" />
+            <span>
+              {change > 0 && '+'}
+              {change}%
+            </span>
+          </span>
+          {changeLabel && (
+            <span className="text-[#586069]">{changeLabel}</span>
           )}
         </div>
-
-        {/* Value */}
-        <p className="text-2xl sm:text-3xl font-bold font-mono text-text-primary">
-          {value}
-        </p>
-
-        {/* Change */}
-        {change !== undefined && (
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                'inline-flex items-center gap-1 text-xs font-medium',
-                determinedTrend === 'up' && 'text-positive',
-                determinedTrend === 'down' && 'text-negative',
-                determinedTrend === 'neutral' && 'text-text-tertiary'
-              )}
-            >
-              <TrendIcon className="h-3 w-3" />
-              <span className="font-mono">
-                {change > 0 && '+'}
-                {change}%
-              </span>
-            </div>
-            {changeLabel && (
-              <span className="text-xs text-text-tertiary">{changeLabel}</span>
-            )}
-          </div>
-        )}
-      </div>
-    </Card>
+      )}
+    </div>
   );
 });

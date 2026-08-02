@@ -7,14 +7,11 @@ import { executionApi, dashboardApi } from '@/lib/api';
 import { ActivePositionsTable } from '@/components/dashboard/active-positions-table';
 import { PriceTicker } from '@/components/dashboard/price-ticker';
 import { MetricCard } from '@/components/dashboard/metric-card';
-import { ConnectionStatus } from '@/components/dashboard/connection-status';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/lib/constants';
 import { formatTimeAgo, formatCurrency } from '@/lib/utils/format';
 import type { ExecutionUpdate } from '@/types/websocket';
 import type { Trade } from '@/types/trade';
-import { Wallet, TrendingUp, BarChart3, Award, ArrowUp, ArrowDown } from 'lucide-react';
+import { Wallet, TrendingUp, BarChart3, Award, ArrowUp, ArrowDown, ArrowRight } from 'lucide-react';
 
 export default function DashboardPage() {
   const { socket } = useSocket();
@@ -72,7 +69,6 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!socket) return;
 
-    // Price updates from chart channel (if available)
     const chartHandler = (candle: any) => {
       if (candle.close) setCurrentPrice(candle.close);
     };
@@ -96,7 +92,6 @@ export default function DashboardPage() {
       }
     };
 
-    // Paper balance live updates
     const balanceHandler = (data: { balance: number }) => {
       setMetrics(prev => ({ ...prev, balance: data.balance }));
     };
@@ -116,8 +111,6 @@ export default function DashboardPage() {
     socket.on('mid_market_entry', refetchRecent);
     socket.on('mid_market_stop', refetchRecent);
     socket.on('mid_market_resolved', refetchRecent);
-    socket.on('scalp_entry', refetchRecent);
-    socket.on('scalp_exit', refetchRecent);
 
     return () => {
       socket.off('chart_update', chartHandler);
@@ -126,173 +119,146 @@ export default function DashboardPage() {
       socket.off('mid_market_entry', refetchRecent);
       socket.off('mid_market_stop', refetchRecent);
       socket.off('mid_market_resolved', refetchRecent);
-      socket.off('scalp_entry', refetchRecent);
-      socket.off('scalp_exit', refetchRecent);
     };
   }, [socket]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-text-primary">Dashboard</h1>
-          <p className="text-sm text-text-secondary mt-1">
-            Monitor your trading performance
-          </p>
-        </div>
-        <ConnectionStatus showLabel />
+    <div className="space-y-4 max-w-[1600px] mx-auto px-4 py-4">
+      {/* Metrics Grid (Meridian Top 4-Card Summary Bar) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <MetricCard
+          title="TOTAL BALANCE"
+          value={`$${metrics.balance.toFixed(2)}`}
+          change={metrics.balanceChange}
+          changeLabel="VS YESTERDAY"
+          icon={Wallet}
+          loading={loadingMetrics}
+        />
+        <MetricCard
+          title="OPEN POSITIONS"
+          value={metrics.openTrades}
+          icon={TrendingUp}
+          loading={loadingMetrics}
+        />
+        <MetricCard
+          title="24H P&L"
+          value={`$${metrics.pnl24h.toFixed(2)}`}
+          change={metrics.pnl24hChange}
+          trend={metrics.pnl24h >= 0 ? 'up' : 'down'}
+          icon={BarChart3}
+          loading={loadingMetrics}
+        />
+        <MetricCard
+          title="FILTER WIN RATE"
+          value={`${metrics.winRate}%`}
+          change={metrics.winRateChange}
+          trend={metrics.winRateChange >= 0 ? 'up' : 'down'}
+          icon={Award}
+          loading={loadingMetrics}
+        />
       </div>
 
-      {/* Price Ticker */}
-      <PriceTicker price={currentPrice} change24h={price24hChange} />
-
-      {/* Active Positions Table (full-width, grouped by strategy) */}
+      {/* Active Positions Table */}
       <ActivePositionsTable />
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {loadingMetrics ? (
-          <>
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-24 bg-bg-tertiary rounded-lg animate-pulse" />
-            ))}
-          </>
-        ) : (
-          <>
-            <MetricCard
-              title="Balance"
-              value={`$${metrics.balance.toFixed(2)}`}
-              change={metrics.balanceChange}
-              changeLabel="vs yesterday"
-              icon={Wallet}
-            />
-            <MetricCard
-              title="Open Trades"
-              value={metrics.openTrades}
-              icon={TrendingUp}
-            />
-            <MetricCard
-              title="24h P&L"
-              value={`$${metrics.pnl24h.toFixed(2)}`}
-              change={metrics.pnl24hChange}
-              trend={metrics.pnl24h >= 0 ? 'up' : 'down'}
-              icon={BarChart3}
-            />
-            <MetricCard
-              title="Win Rate"
-              value={`${metrics.winRate}%`}
-              change={metrics.winRateChange}
-              trend={metrics.winRateChange >= 0 ? 'up' : 'down'}
-              icon={Award}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Recent Trades Preview */}
-      <Card padding="lg">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-text-primary">
-            Recent Trades
-          </h3>
+      {/* Recent Transactions Table (Meridian Style) */}
+      <div className="bg-[#0F1215] border border-[#1B2026]">
+        <div className="p-3.5 border-b border-[#1B2026] flex items-center justify-between bg-[#16191E]/60">
+          <div>
+            <p className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-[#586069]">
+              RECENT TRANSACTIONS
+            </p>
+            <h3 className="text-xs font-mono font-bold text-[#E1E4E8] mt-0.5">
+              EXECUTED TRADES & RESOLUTIONS
+            </h3>
+          </div>
           <Link
             href={ROUTES.TRADES}
-            className="text-sm text-accent-primary hover:text-accent-hover transition-colors"
+            className="text-xs font-mono text-[#20B2AA] hover:underline flex items-center gap-1"
           >
-            View All →
+            VIEW ALL PAYMENTS <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
 
         {loadingTrades ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-16 bg-bg-tertiary rounded-lg animate-pulse"
-              />
-            ))}
+          <div className="p-4 text-center font-mono text-xs text-[#586069]">
+            Loading transaction ledger...
           </div>
         ) : recentTrades.length > 0 ? (
-          <div className="space-y-3">
-            {recentTrades.map((trade) => {
-              const isWin = trade.status === 'CLOSED_WIN';
-              const isLoss = trade.status === 'CLOSED_LOSS';
-              const isOpen = trade.status === 'OPEN';
-              const pnl = trade.pnl || 0;
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse font-mono text-xs">
+              <thead>
+                <tr className="bg-[#16191E] border-b border-[#1B2026] text-[10px] text-[#586069] uppercase tracking-[0.1em]">
+                  <th className="px-3 py-2">DATE / TIME</th>
+                  <th className="px-3 py-2">MARKET</th>
+                  <th className="px-3 py-2">DIRECTION</th>
+                  <th className="px-3 py-2 text-right">SIZE (USD)</th>
+                  <th className="px-3 py-2 text-right">P&L AMOUNT</th>
+                  <th className="px-3 py-2 text-right">STATUS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1B2026]/60">
+                {recentTrades.map((trade) => {
+                  const isWin = trade.status === 'CLOSED_WIN';
+                  const isLoss = trade.status === 'CLOSED_LOSS';
+                  const isOpen = trade.status === 'OPEN';
+                  const pnl = trade.pnl || 0;
 
-              return (
-                <div
-                  key={trade._id}
-                  className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg hover:bg-bg-tertiary/80 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        trade.direction === 'UP'
-                          ? 'bg-positive/20'
-                          : 'bg-negative/20'
-                      }`}
-                    >
-                      {trade.direction === 'UP' ? (
-                        <ArrowUp className="h-4 w-4 text-positive" />
-                      ) : (
-                        <ArrowDown className="h-4 w-4 text-negative" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">
-                        {trade.market_slug}
-                      </p>
-                      <p className="text-xs text-text-tertiary">
+                  return (
+                    <tr key={trade._id} className="hover:bg-[#16191E]/40 transition-colors">
+                      <td className="px-3 py-2 text-[#8B949E]">
                         {formatTimeAgo(trade.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    {isOpen ? (
-                      <>
-                        <Badge variant="info" size="sm">
-                          Open
-                        </Badge>
-                        <p className="text-xs text-text-tertiary mt-1">
-                          {formatCurrency(trade.size_usd)}
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p
-                          className={`text-sm font-mono font-semibold ${
-                            isWin
-                              ? 'text-positive'
-                              : isLoss
-                                ? 'text-negative'
-                                : 'text-text-secondary'
-                          }`}
-                        >
-                          {pnl > 0 ? '+' : ''}
-                          {formatCurrency(pnl)}
-                        </p>
-                        <p className="text-xs text-text-tertiary">
-                          {isWin ? 'Win' : isLoss ? 'Loss' : trade.status}
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                      </td>
+                      <td className="px-3 py-2 text-[#E1E4E8] font-bold">
+                        {trade.market_slug.toUpperCase()}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`inline-flex items-center gap-1 font-bold ${
+                          trade.direction === 'UP' ? 'text-[#20B2AA]' : 'text-[#E55353]'
+                        }`}>
+                          {trade.direction === 'UP' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                          {trade.direction}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[#8B949E]">
+                        {formatCurrency(trade.size_usd)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums font-bold">
+                        {isOpen ? (
+                          <span className="text-[#586069]">—</span>
+                        ) : (
+                          <span className={isWin ? 'text-[#20B2AA]' : isLoss ? 'text-[#E55353]' : 'text-[#8B949E]'}>
+                            {pnl > 0 ? '+' : ''}
+                            {formatCurrency(pnl)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <span className={`inline-block px-1.5 py-0.5 text-[10px] font-bold uppercase rounded-xs border ${
+                          isWin
+                            ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
+                            : isLoss
+                            ? 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30'
+                            : isOpen
+                            ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/20'
+                            : 'bg-[#D99B00]/15 text-[#D99B00] border-[#D99B00]/30'
+                        }`}>
+                          {isOpen ? 'OPEN' : isWin ? 'SETTLED WIN' : isLoss ? 'SETTLED LOSS' : trade.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : (
-          <div className="text-center py-8">
-            <BarChart3 className="h-12 w-12 text-text-tertiary mx-auto mb-3" />
-            <p className="text-sm text-text-secondary">No trades yet</p>
-            <p className="text-xs text-text-tertiary mt-1">
-              Trades will appear here when positions are opened
-            </p>
+          <div className="text-center py-8 font-mono">
+            <BarChart3 className="h-8 w-8 text-[#586069] mx-auto mb-2" />
+            <p className="text-xs text-[#8B949E]">No transactions recorded yet</p>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

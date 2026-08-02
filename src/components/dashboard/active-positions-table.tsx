@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, memo } from 'react';
+import Link from 'next/link';
 import { useSocket } from '@/context/socket-context';
 import { executionApi, settingsApi } from '@/lib/api';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardBody } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, Radio, Clock, Zap, Activity, Brain } from 'lucide-react';
+import { TrendingUp, TrendingDown, Radio, Clock, Activity, ArrowUpRight, Flame } from 'lucide-react';
 import type { MidMarketState } from '@/types/websocket';
 
 const ALL_MARKETS = [
@@ -73,8 +72,6 @@ function emptyState(): MarketState {
   };
 }
 
-type StatsFilter = 'all' | 'mid_market' | 'scalp';
-
 interface StrategyAgg {
   trades: number;
   wins: number;
@@ -90,8 +87,7 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
     return init;
   });
   const [midStats, setMidStats] = useState<StrategyAgg>({ trades: 0, wins: 0, losses: 0, pnl: 0 });
-  const [scalpStats, setScalpStats] = useState<StrategyAgg>({ trades: 0, wins: 0, losses: 0, pnl: 0 });
-  const [statsFilter, setStatsFilter] = useState<StatsFilter>('all');
+  const [enabledMarkets, setEnabledMarkets] = useState<string[]>(['btc-5m']);
   const [activeStrategies, setActiveStrategies] = useState<string[]>([]);
 
   const marketsRef = useRef(markets);
@@ -99,26 +95,25 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
   const strategiesRef = useRef(activeStrategies);
   strategiesRef.current = activeStrategies;
 
-  // Fetch persisted stats + positions on mount
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [midData, scalpData, tradesData, strategyData] = await Promise.all([
+        const [midData, tradesData, strategyData] = await Promise.all([
           executionApi.getMidMarketStats(),
-          executionApi.getScalpStats(),
           executionApi.getTrades(),
           settingsApi.getStrategySelection(),
         ]);
 
-        const enabled = strategyData.strategySelection?.active_strategies ?? [];
-        setActiveStrategies(enabled);
+        const enabledStrats = strategyData.strategySelection?.active_strategies ?? [];
+        const enabledMkts = strategyData.strategySelection?.mid_market_markets ?? ['btc-5m'];
+        setActiveStrategies(enabledStrats);
+        setEnabledMarkets(enabledMkts);
 
         setMarkets(prev => {
           const updated = { ...prev };
           for (const id of Object.keys(updated)) {
-            // Mid-market positions (only if strategy enabled)
             const midPos = midData.positions?.[id];
-            if (midPos && enabled.includes('mid_market')) {
+            if (midPos && enabledStrats.includes('mid_market')) {
               updated[id] = {
                 ...updated[id],
                 position: {
@@ -130,26 +125,9 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
                 lastEvent: Date.now(),
               };
             }
-            // Scalp positions (only if strategy enabled)
-            const scalpPos = scalpData.positions?.[id];
-            if (scalpPos && enabled.includes('scalp')) {
-              updated[id] = {
-                ...updated[id],
-                position: {
-                  direction: scalpPos.direction,
-                  entry_price: scalpPos.entry_price,
-                  strategy: 'scalp',
-                  num_shares: scalpPos.num_shares,
-                  take_profit_price: scalpPos.take_profit_price,
-                  stop_price: scalpPos.stop_loss_price,
-                },
-                lastEvent: Date.now(),
-              };
-            }
           }
 
-          // Open prediction trades (only if AI strategy enabled)
-          if (enabled.includes('ai_prediction_v2')) {
+          if (enabledStrats.includes('ai_prediction_v2')) {
             const openPredictions = tradesData.trades.filter(
               (t: any) => t.strategy === 'ai_prediction_v2' && t.status === 'OPEN'
             );
@@ -173,30 +151,20 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
           return updated;
         });
 
-        // Use top-level aggregates directly (same source as socket events)
         setMidStats({
           trades: midData.daily_trades ?? 0,
           wins: midData.daily_wins ?? 0,
           losses: midData.daily_losses ?? 0,
           pnl: midData.daily_pnl ?? 0,
         });
-
-        setScalpStats({
-          trades: scalpData.daily_trades ?? 0,
-          wins: scalpData.daily_wins ?? 0,
-          losses: scalpData.daily_losses ?? 0,
-          pnl: scalpData.daily_pnl ?? 0,
-        });
       } catch {}
     };
     fetchAll();
   }, []);
 
-  // Socket listeners
   useEffect(() => {
     if (!socket) return;
 
-    // Mid-market tick updates (prices, MQS, distance, timer)
     const midUpdateHandler = (data: MidMarketState) => {
       const mt = (data as any).market_type || 'btc-5m';
       if (!marketsRef.current[mt]) return;
@@ -230,13 +198,6 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
       }).catch(() => {});
     };
 
-    const refetchScalpStats = () => {
-      executionApi.getScalpStats().then(d => {
-        setScalpStats({ trades: d.daily_trades ?? 0, wins: d.daily_wins ?? 0, losses: d.daily_losses ?? 0, pnl: d.daily_pnl ?? 0 });
-      }).catch(() => {});
-    };
-
-    // Mid-market entry
     const midEntryHandler = (data: any) => {
       const mt = data.market_type || 'btc-5m';
       if (!marketsRef.current[mt]) return;
@@ -259,7 +220,6 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
       refetchMidStats();
     };
 
-    // Mid-market stop/resolved
     const midExitHandler = (data: any) => {
       const mt = data.market_type || 'btc-5m';
       if (!marketsRef.current[mt]) return;
@@ -270,236 +230,108 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
       refetchMidStats();
     };
 
-    // Retrace watching (part of mid-market strategy)
-    const retraceWatchHandler = (data: any) => {
-      const mt = data.market_type || 'btc-5m';
-      if (!marketsRef.current[mt]) return;
-      if (!strategiesRef.current.includes('mid_market')) return;
-      setMarkets(prev => ({
-        ...prev,
-        [mt]: {
-          ...prev[mt],
-          position: {
-            direction: data.direction,
-            entry_price: data.target_price,
-            strategy: 'mid_market',
-            num_shares: data.num_shares,
-            stop_price: data.stop_price,
-            rr_ratio: data.rr_ratio,
-          },
-          lastEvent: Date.now(),
-        }
-      }));
-    };
-
-    const retraceExpiredHandler = (data: any) => {
-      const mt = data.market_type || 'btc-5m';
-      if (!marketsRef.current[mt]) return;
-      setMarkets(prev => ({
-        ...prev,
-        [mt]: { ...prev[mt], position: null, lastEvent: Date.now() }
-      }));
-    };
-
-    // Scalp entry
-    const scalpEntryHandler = (data: any) => {
-      const mt = data.market_type || 'btc-5m';
-      if (!marketsRef.current[mt]) return;
-      if (!strategiesRef.current.includes('scalp')) return;
-      setMarkets(prev => ({
-        ...prev,
-        [mt]: {
-          ...prev[mt],
-          position: {
-            direction: data.direction,
-            entry_price: data.entry_price,
-            strategy: 'scalp',
-            num_shares: data.num_shares,
-            take_profit_price: data.take_profit,
-            stop_price: data.stop_loss,
-          },
-          lastEvent: Date.now(),
-        }
-      }));
-    };
-
-    // Scalp exit
-    const scalpExitHandler = (data: any) => {
-      const mt = data.market_type || 'btc-5m';
-      if (!marketsRef.current[mt]) return;
-      setMarkets(prev => ({
-        ...prev,
-        [mt]: { ...prev[mt], position: null, lastEvent: Date.now() }
-      }));
-      refetchScalpStats();
-    };
-
-    // Prediction / AI signal — lights up when execution dispatched
-    const predictionEntryHandler = (data: any) => {
-      if (!data.market_slug) return;
-      if (!strategiesRef.current.includes('ai_prediction_v2')) return;
-      const mt = deriveMarketType(data.market_slug);
-      if (!mt || !marketsRef.current[mt]) return;
-      setMarkets(prev => ({
-        ...prev,
-        [mt]: {
-          ...prev[mt],
-          position: {
-            direction: data.direction,
-            entry_price: data.entry_price || data.strike_price || 0,
-            strategy: 'ai_prediction_v2',
-            num_shares: data.num_shares,
-          },
-          lastEvent: Date.now(),
-        }
-      }));
-    };
-
-    // Execution update — clear prediction position on terminal status
-    const executionUpdateHandler = (data: any) => {
-      if (!data.strategy || data.strategy !== 'ai_prediction_v2') return;
-      if (!data.market_slug) return;
-      const mt = deriveMarketType(data.market_slug);
-      if (!mt || !marketsRef.current[mt]) return;
-      const terminal = ['CLOSED_WIN', 'CLOSED_LOSS', 'REJECTED'].includes(data.status);
-      if (terminal) {
-        setMarkets(prev => {
-          if (prev[mt].position?.strategy !== 'ai_prediction_v2') return prev;
-          return { ...prev, [mt]: { ...prev[mt], position: null, lastEvent: Date.now() } };
-        });
-      }
-    };
-
     socket.on('mid_market_update', midUpdateHandler);
     socket.on('mid_market_entry', midEntryHandler);
     socket.on('mid_market_stop', midExitHandler);
     socket.on('mid_market_resolved', midExitHandler);
-    socket.on('mid_market_retrace_watching', retraceWatchHandler);
-    socket.on('mid_market_limit_expired', retraceExpiredHandler);
-    socket.on('scalp_entry', scalpEntryHandler);
-    socket.on('scalp_exit', scalpExitHandler);
-    socket.on('ai_signal_update', predictionEntryHandler);
-    socket.on('execution_update', executionUpdateHandler);
 
     return () => {
       socket.off('mid_market_update', midUpdateHandler);
       socket.off('mid_market_entry', midEntryHandler);
       socket.off('mid_market_stop', midExitHandler);
       socket.off('mid_market_resolved', midExitHandler);
-      socket.off('mid_market_retrace_watching', retraceWatchHandler);
-      socket.off('mid_market_limit_expired', retraceExpiredHandler);
-      socket.off('scalp_entry', scalpEntryHandler);
-      socket.off('scalp_exit', scalpExitHandler);
-      socket.off('ai_signal_update', predictionEntryHandler);
-      socket.off('execution_update', executionUpdateHandler);
     };
   }, [socket]);
 
-  // Re-evaluate active/inactive every 5s
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => tick(t => t + 1), 5000);
-    return () => clearInterval(id);
-  }, []);
-
-  const activeMarkets = ALL_MARKETS.filter(m => {
-    const s = markets[m.id];
-    return s.lastEvent > 0 && (Date.now() - s.lastEvent < 15000);
+  // Filter ONLY user-enabled markets OR markets that currently have an open position!
+  const visibleMarkets = ALL_MARKETS.filter(m => {
+    const hasOpenPos = markets[m.id]?.position != null;
+    const isEnabled = enabledMarkets.includes(m.id);
+    return isEnabled || hasOpenPos;
   });
 
-  const inactiveMarkets = ALL_MARKETS.filter(m => {
-    const s = markets[m.id];
-    return s.lastEvent === 0 || (Date.now() - s.lastEvent >= 15000);
-  });
-
-  // Filtered totals based on selected strategy
-  const totalTrades = statsFilter === 'scalp' ? scalpStats.trades : statsFilter === 'mid_market' ? midStats.trades : midStats.trades + scalpStats.trades;
-  const totalWins = statsFilter === 'scalp' ? scalpStats.wins : statsFilter === 'mid_market' ? midStats.wins : midStats.wins + scalpStats.wins;
-  const totalLosses = statsFilter === 'scalp' ? scalpStats.losses : statsFilter === 'mid_market' ? midStats.losses : midStats.losses + scalpStats.losses;
-  const totalPnl = Math.round((statsFilter === 'scalp' ? scalpStats.pnl : statsFilter === 'mid_market' ? midStats.pnl : midStats.pnl + scalpStats.pnl) * 100) / 100;
+  const openPositionsCount = ALL_MARKETS.filter(m => markets[m.id]?.position != null).length;
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Radio className="h-5 w-5 text-accent-primary" />
-            <h3 className="text-sm font-semibold text-text-primary">Active Markets</h3>
+    <div className="bg-[#0F1215] border border-[#1B2026] font-mono select-none">
+      {/* Header Bar */}
+      <div className="p-3.5 border-b border-[#1B2026] flex items-center justify-between bg-[#16191E]/80">
+        <div className="flex items-center gap-2.5">
+          <div className="relative flex items-center justify-center">
+            <Radio className="h-4 w-4 text-[#20B2AA]" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#20B2AA] animate-ping" />
           </div>
-          <Badge variant={activeMarkets.length > 0 ? 'success' : 'neutral'} size="sm">
-            {activeMarkets.length}/{ALL_MARKETS.length}
-          </Badge>
+          <div>
+            <h3 className="text-xs font-bold text-[#E1E4E8] uppercase tracking-[0.12em]">
+              ACTIVE TRADING MARKETS
+            </h3>
+            <p className="text-[10px] text-[#586069] uppercase mt-0.5">
+              CLICK ANY MARKET TO OPEN LIVE STRATEGY MONITOR
+            </p>
+          </div>
         </div>
-      </CardHeader>
 
-      <CardBody className="space-y-2">
-        {activeMarkets.length === 0 && (
-          <div className="text-center py-4">
-            <p className="text-xs text-text-tertiary">No markets active</p>
+        <div className="flex items-center gap-2">
+          {openPositionsCount > 0 && (
+            <span className="px-2.5 py-1 text-xs font-black uppercase rounded-xs bg-[#20B2AA] text-[#080A0C] shadow-[0_0_15px_rgba(32,178,170,0.5)] animate-pulse flex items-center gap-1">
+              <Flame className="h-3.5 w-3.5" />
+              {openPositionsCount} OPEN POSITION{openPositionsCount > 1 ? 'S' : ''}
+            </span>
+          )}
+          <span className="px-2 py-1 text-[10px] font-bold uppercase rounded-xs bg-[#16191E] text-[#8B949E] border border-[#1B2026]">
+            {visibleMarkets.length} TRADING MARKET{visibleMarkets.length > 1 ? 'S' : ''}
+          </span>
+        </div>
+      </div>
+
+      {/* Grid of Active Trading Market Cards */}
+      <div className="p-3.5">
+        {visibleMarkets.length === 0 ? (
+          <div className="text-center py-8 text-[#586069] text-xs uppercase tracking-wider">
+            NO MARKETS ENABLED. GO TO SETTINGS TO ACTIVATE MARKETS.
           </div>
-        )}
-
-        {activeMarkets.map(m => (
-          <MarketRow key={m.id} market={m} state={markets[m.id]} />
-        ))}
-
-        {inactiveMarkets.length > 0 && activeMarkets.length > 0 && (
-          <div className="pt-2 border-t border-border/50">
-            <p className="text-[10px] text-text-tertiary uppercase font-bold mb-1.5">Inactive</p>
-            <div className="flex flex-wrap gap-1.5">
-              {inactiveMarkets.map(m => (
-                <span key={m.id} className="text-[10px] text-text-tertiary bg-bg-tertiary rounded px-1.5 py-0.5 font-mono">
-                  {m.asset}-{m.window}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Totals with strategy filter */}
-        <div className="pt-3 border-t border-border space-y-2">
-          <div className="flex justify-center gap-1">
-            {(['all', 'mid_market', 'scalp'] as const).map(f => (
-              <button
-                key={f}
-                onClick={() => setStatsFilter(f)}
-                className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-md transition-colors ${
-                  statsFilter === f
-                    ? 'bg-accent-primary text-white'
-                    : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-tertiary'
-                }`}
-              >
-                {f === 'all' ? 'All' : f === 'mid_market' ? 'Mid' : 'Scalp'}
-              </button>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            {visibleMarkets.map(m => (
+              <MarketCard key={m.id} market={m} state={markets[m.id]} />
             ))}
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="text-center">
-              <p className="text-[10px] text-text-tertiary uppercase font-bold">Trades</p>
-              <p className="text-sm font-bold text-text-primary tabular-nums">{totalTrades}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-text-tertiary uppercase font-bold">W/L</p>
-              <div className="text-sm font-bold tabular-nums">
-                <span className="text-positive">{totalWins}</span>
-                <span className="text-text-tertiary mx-0.5">/</span>
-                <span className="text-negative">{totalLosses}</span>
-              </div>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-text-tertiary uppercase font-bold">PnL</p>
-              <p className={`text-sm font-mono font-bold tabular-nums ${totalPnl >= 0 ? 'text-positive' : 'text-negative'}`}>
-                ${totalPnl.toFixed(2)}
-              </p>
-            </div>
+        )}
+      </div>
+
+      {/* Bottom Summary Bar */}
+      <div className="p-3 border-t border-[#1B2026] bg-[#16191E]/50 flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-[#586069]">
+          <Activity className="h-3.5 w-3.5 text-[#20B2AA]" />
+          <span>MID-MARKET STRATEGY MONITOR</span>
+        </div>
+
+        <div className="flex items-center gap-6 text-xs tabular-nums">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-[#586069] uppercase font-bold">DAILY TRADES:</span>
+            <span className="font-bold text-[#E1E4E8]">{midStats.trades}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-[#586069] uppercase font-bold">W / L:</span>
+            <span className="font-bold text-[#20B2AA]">{midStats.wins}</span>
+            <span className="text-[#586069]">/</span>
+            <span className="font-bold text-[#E55353]">{midStats.losses}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-[#586069] uppercase font-bold">ACCUMULATED P&L:</span>
+            <span className={`font-bold ${midStats.pnl >= 0 ? 'text-[#20B2AA]' : 'text-[#E55353]'}`}>
+              {midStats.pnl >= 0 ? '+' : ''}${midStats.pnl.toFixed(2)}
+            </span>
           </div>
         </div>
-      </CardBody>
-    </Card>
+      </div>
+    </div>
   );
 });
 
-function MarketRow({ market, state }: { market: typeof ALL_MARKETS[0]; state: MarketState }) {
+function MarketCard({ market, state }: { market: typeof ALL_MARKETS[0]; state: MarketState }) {
   const [remaining, setRemaining] = useState(0);
 
   useEffect(() => {
@@ -515,111 +347,137 @@ function MarketRow({ market, state }: { market: typeof ALL_MARKETS[0]; state: Ma
     : '—';
 
   const pos = state.position;
-  const activeStrategy = pos?.strategy ?? null;
+  const isLive = state.lastEvent > 0 && (Date.now() - state.lastEvent < 15000);
+  const isLong = pos?.direction === 'UP';
 
   return (
-    <div className={`p-2.5 bg-bg-tertiary rounded-lg border ${pos ? 'border-accent-primary/30' : 'border-border/30'}`}>
-      {/* Top row: market name, strategy badges, prices, distance, MQS, timer */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={`h-2 w-2 rounded-full ${pos ? 'bg-accent-primary animate-pulse' : 'bg-positive'}`} />
-          <span className="text-xs font-bold text-text-primary uppercase">{market.asset}</span>
-          <span className="text-[10px] text-text-tertiary font-mono">{market.window}</span>
-          {/* Strategy badges — always visible, lit when active */}
-          <div className="flex items-center gap-1 ml-1">
-            <StrategyBadge strategy="mid_market" active={activeStrategy === 'mid_market'} />
-            <StrategyBadge strategy="scalp" active={activeStrategy === 'scalp'} />
-            <StrategyBadge strategy="ai_prediction_v2" active={activeStrategy === 'ai_prediction_v2'} />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {state.upPrice != null && (
-            <div className="flex gap-1.5 text-[10px] font-mono tabular-nums">
-              <span className="text-positive">${state.upPrice.toFixed(2)}</span>
-              <span className="text-text-tertiary">/</span>
-              <span className="text-negative">${state.downPrice?.toFixed(2) ?? '—'}</span>
+    <Link href={`/strategies/mid-market?market=${market.id}`} className="block group">
+      <div
+        className={`p-3 border transition-all rounded-xs space-y-2 font-mono relative overflow-hidden cursor-pointer ${
+          pos
+            ? isLong
+              ? 'border-2 border-[#20B2AA] bg-[#20B2AA]/15 shadow-[0_0_25px_rgba(32,178,170,0.35)] scale-[1.02]'
+              : 'border-2 border-[#E55353] bg-[#E55353]/15 shadow-[0_0_25px_rgba(229,83,83,0.35)] scale-[1.02]'
+            : isLive
+            ? 'border-[#1B2026] bg-[#16191E]/60 group-hover:border-[#20B2AA]/60 group-hover:bg-[#16191E]'
+            : 'border-[#1B2026]/40 bg-[#16191E]/40 opacity-70 group-hover:opacity-100'
+        }`}
+      >
+        {/* EXTREMELY OBVIOUS OPEN POSITION BANNER */}
+        {pos && (
+          <div
+            className={`-mx-3 -mt-3 mb-2 px-3 py-1.5 font-black text-[11px] uppercase tracking-wider flex items-center justify-between ${
+              isLong ? 'bg-[#20B2AA] text-[#080A0C]' : 'bg-[#E55353] text-[#FFFFFF]'
+            }`}
+          >
+            <div className="flex items-center gap-1.5">
+              <Flame className="h-4 w-4 animate-bounce" />
+              <span>
+                OPEN POSITION: {pos.direction === 'UP' ? 'LONG (YES)' : 'SHORT (NO)'}
+              </span>
             </div>
-          )}
-
-          {state.priceDistance != null && (
-            <span className={`text-[10px] font-mono tabular-nums ${isDistanceSignificant(market.asset, state.priceDistance) ? 'text-positive' : 'text-text-tertiary'}`}>
-              {formatDistance(market.asset, state.priceDistance)}
-            </span>
-          )}
-
-          {state.mqsScore > 0 && (
-            <span className={`text-[10px] font-mono tabular-nums ${state.mqsScore >= 0.6 ? 'text-positive' : state.mqsScore >= 0.4 ? 'text-warning' : 'text-negative'}`}>
-              {(state.mqsScore * 100).toFixed(0)}%
-            </span>
-          )}
-
-          <div className="flex items-center gap-0.5 text-[10px] font-mono text-text-secondary tabular-nums min-w-[32px] justify-end">
-            <Clock className="h-2.5 w-2.5" />
-            {timeLabel}
-          </div>
-        </div>
-      </div>
-
-      {/* Position details (only if there's an active position) */}
-      {pos && (
-        <div className="mt-1.5 pt-1.5 border-t border-border/30 flex items-center justify-between">
-          <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${
-            pos.direction === 'UP' ? 'bg-positive/15 text-positive' : 'bg-negative/15 text-negative'
-          }`}>
-            {pos.direction === 'UP' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {pos.direction}
-          </span>
-
-          <div className="flex items-center gap-3 text-[10px] font-mono tabular-nums">
-            <span className="text-text-secondary">
+            <span className="font-mono underline">
               @ ${pos.entry_price.toFixed(2)}
             </span>
-            {pos.stop_price != null && (
-              <span className="text-negative">SL ${pos.stop_price.toFixed(2)}</span>
+          </div>
+        )}
+
+        {/* Top row: Market name, window, clickable icon */}
+        <div className="flex items-center justify-between border-b border-[#1B2026]/80 pb-2">
+          <div className="flex items-center gap-2">
+            <div
+              className={`w-2.5 h-2.5 rounded-full ${
+                pos
+                  ? isLong ? 'bg-[#20B2AA] animate-ping' : 'bg-[#E55353] animate-ping'
+                  : isLive
+                  ? 'bg-[#20B2AA]'
+                  : 'bg-[#586069]'
+              }`}
+            />
+            <span className="text-xs font-bold text-[#E1E4E8] uppercase tracking-wide group-hover:text-[#20B2AA] transition-colors">
+              {market.asset} {market.window}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-[#586069] font-mono tabular-nums flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {timeLabel}
+            </span>
+            <ArrowUpRight className="h-3.5 w-3.5 text-[#586069] group-hover:text-[#20B2AA] transition-colors ml-1" />
+          </div>
+        </div>
+
+        {/* YES / NO Pricing & Distance Row */}
+        <div className="grid grid-cols-2 gap-2 text-xs tabular-nums py-0.5">
+          <div>
+            <span className="text-[9px] text-[#586069] uppercase font-bold block">YES / NO</span>
+            {state.upPrice != null ? (
+              <div className="font-bold">
+                <span className="text-[#20B2AA]">${state.upPrice.toFixed(2)}</span>
+                <span className="text-[#586069] mx-1">/</span>
+                <span className="text-[#E55353]">${state.downPrice?.toFixed(2) ?? '—'}</span>
+              </div>
+            ) : (
+              <span className="text-[#586069] text-[11px]">—</span>
             )}
-            {pos.take_profit_price != null && (
-              <span className="text-positive">TP ${pos.take_profit_price.toFixed(2)}</span>
-            )}
-            {pos.rr_ratio != null && (
-              <span className="text-text-tertiary">R:R {pos.rr_ratio.toFixed(2)}</span>
-            )}
-            {pos.num_shares != null && (
-              <span className="text-text-tertiary">{pos.num_shares}sh</span>
+          </div>
+
+          <div className="text-right">
+            <span className="text-[9px] text-[#586069] uppercase font-bold block">DISTANCE</span>
+            {state.priceDistance != null ? (
+              <span
+                className={`font-bold ${
+                  isDistanceSignificant(market.asset, state.priceDistance)
+                    ? 'text-[#20B2AA]'
+                    : 'text-[#8B949E]'
+                }`}
+              >
+                {formatDistance(market.asset, state.priceDistance)}
+              </span>
+            ) : (
+              <span className="text-[#586069] text-[11px]">—</span>
             )}
           </div>
         </div>
-      )}
-    </div>
+
+        {/* MQS Score & Strike Row */}
+        <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-[#1B2026]/40 text-[#8B949E]">
+          <div>
+            {state.strikePrice != null ? (
+              <span>
+                STRIKE: <strong className="text-[#E1E4E8] tabular-nums">${state.strikePrice.toLocaleString()}</strong>
+              </span>
+            ) : (
+              <span className="text-[#586069]">MONITORING...</span>
+            )}
+          </div>
+
+          {state.mqsScore > 0 && (
+            <span
+              className={`font-bold px-1.5 py-0.5 rounded-xs border ${
+                state.mqsScore >= 0.6
+                  ? 'bg-[#20B2AA]/20 text-[#20B2AA] border-[#20B2AA]/40'
+                  : 'bg-[#D99B00]/20 text-[#D99B00] border-[#D99B00]/40'
+              }`}
+            >
+              {(state.mqsScore * 100).toFixed(0)}% MQS
+            </span>
+          )}
+        </div>
+
+        {/* Additional position details if trade is open */}
+        {pos && (
+          <div className="pt-1.5 border-t border-[#1B2026]/80 flex items-center justify-between text-[10px] tabular-nums">
+            <span className="text-[#8B949E]">
+              {pos.num_shares ? `${pos.num_shares} SHARES` : 'MID-MARKET'}
+            </span>
+            {pos.stop_price && (
+              <span className="text-[#E55353] font-bold">SL: ${pos.stop_price.toFixed(2)}</span>
+            )}
+          </div>
+        )}
+      </div>
+    </Link>
   );
-}
-
-function StrategyBadge({ strategy, active }: { strategy: string; active: boolean }) {
-  const base = 'inline-flex items-center gap-0.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded transition-colors';
-
-  switch (strategy) {
-    case 'mid_market':
-      return (
-        <span className={`${base} ${active ? 'bg-accent-primary/20 text-accent-primary' : 'bg-bg-secondary/50 text-text-tertiary/40'}`}>
-          <Activity className="h-2.5 w-2.5" />
-          MID
-        </span>
-      );
-    case 'scalp':
-      return (
-        <span className={`${base} ${active ? 'bg-warning/20 text-warning' : 'bg-bg-secondary/50 text-text-tertiary/40'}`}>
-          <Zap className="h-2.5 w-2.5" />
-          SCALP
-        </span>
-      );
-    case 'ai_prediction_v2':
-      return (
-        <span className={`${base} ${active ? 'bg-purple-500/20 text-purple-400' : 'bg-bg-secondary/50 text-text-tertiary/40'}`}>
-          <Brain className="h-2.5 w-2.5" />
-          AI
-        </span>
-      );
-    default:
-      return null;
-  }
 }
