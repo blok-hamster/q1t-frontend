@@ -1,24 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardHeader, CardBody } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { formatCurrency, formatDate, formatAddress } from '@/lib/utils/format';
-import { ArrowUpCircle, ArrowDownCircle, ExternalLink, Clock } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, ExternalLink, Clock, History } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 
-/**
- * Transaction types
- */
-export type TransactionType = 'deposit' | 'withdrawal';
-
-/**
- * Transaction status
- */
+export type TransactionType = 'deposit' | 'withdrawal' | 'trade_win' | 'trade_loss';
 export type TransactionStatus = 'pending' | 'confirmed' | 'failed';
 
-/**
- * Transaction interface
- */
 export interface Transaction {
   id: string;
   type: TransactionType;
@@ -28,6 +17,9 @@ export interface Transaction {
   txHash?: string;
   address?: string;
   timestamp: string;
+  market?: string;
+  direction?: string;
+  pnl?: number;
 }
 
 interface TransactionHistoryProps {
@@ -35,186 +27,145 @@ interface TransactionHistoryProps {
   loading?: boolean;
 }
 
-export function TransactionHistory({
-  transactions,
-  loading = false,
-}: TransactionHistoryProps) {
-  const [filter, setFilter] = useState<TransactionType | 'all'>('all');
+export function TransactionHistory({ transactions, loading = false }: TransactionHistoryProps) {
+  const [filter, setFilter] = useState<'all' | 'deposit' | 'trades'>('all');
 
-  const filteredTransactions =
-    filter === 'all'
-      ? transactions
-      : transactions.filter((tx) => tx.type === filter);
-
-  const getStatusBadge = (status: TransactionStatus) => {
-    switch (status) {
-      case 'confirmed':
-        return (
-          <Badge variant="success" size="sm">
-            Confirmed
-          </Badge>
-        );
-      case 'pending':
-        return (
-          <Badge variant="warning" size="sm">
-            <Clock className="h-3 w-3 mr-1" />
-            Pending
-          </Badge>
-        );
-      case 'failed':
-        return (
-          <Badge variant="error" size="sm">
-            Failed
-          </Badge>
-        );
-    }
-  };
+  const filteredTransactions = transactions.filter((tx) => {
+    if (filter === 'all') return true;
+    if (filter === 'deposit') return tx.type === 'deposit';
+    if (filter === 'trades') return tx.type === 'trade_win' || tx.type === 'trade_loss' || tx.pnl !== undefined;
+    return true;
+  });
 
   return (
-    <Card padding="lg">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-text-primary">
-            Transaction History
+    <div className="bg-[#0F1215] border border-[#1B2026] select-none font-mono text-xs">
+      {/* Header & Filter Tabs */}
+      <div className="p-3.5 border-b border-[#1B2026] flex flex-wrap items-center justify-between gap-3 bg-[#16191E]">
+        <div className="flex items-center gap-2">
+          <History className="h-4 w-4 text-[#20B2AA]" />
+          <h3 className="text-xs font-bold text-[#E1E4E8] uppercase tracking-wider">
+            TRANSACTION & SETTLEMENT LEDGER
           </h3>
-
-          {/* Filter buttons */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                filter === 'all'
-                  ? 'bg-accent-primary text-bg-primary'
-                  : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilter('deposit')}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                filter === 'deposit'
-                  ? 'bg-accent-primary text-bg-primary'
-                  : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              Deposits
-            </button>
-            <button
-              onClick={() => setFilter('withdrawal')}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                filter === 'withdrawal'
-                  ? 'bg-accent-primary text-bg-primary'
-                  : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              Withdrawals
-            </button>
-          </div>
         </div>
-      </CardHeader>
 
-      <CardBody>
+        <div className="flex items-center bg-[#080A0C] border border-[#1B2026] p-0.5 text-[10px]">
+          {(['all', 'deposit', 'trades'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                'px-2.5 py-1 uppercase font-bold transition-colors cursor-pointer rounded-xs',
+                filter === f
+                  ? 'bg-[#16191E] text-[#20B2AA] border border-[#20B2AA]/30'
+                  : 'text-[#8B949E] hover:text-[#E1E4E8]'
+              )}
+            >
+              {f === 'all' ? 'ALL LEDGER' : f === 'deposit' ? 'DEPOSITS' : 'TRADES'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Body List */}
+      <div className="p-3.5 space-y-2">
         {loading ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-20 bg-bg-tertiary rounded-lg animate-pulse"
-              />
+              <div key={i} className="h-14 bg-[#16191E] border border-[#1B2026] animate-pulse" />
             ))}
           </div>
         ) : filteredTransactions.length > 0 ? (
-          <div className="space-y-3">
-            {filteredTransactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg hover:bg-bg-tertiary/80 transition-colors"
-              >
-                {/* Left: Icon + Details */}
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`p-2 rounded-full ${
-                      tx.type === 'deposit'
-                        ? 'bg-positive/20'
-                        : 'bg-accent-primary/20'
-                    }`}
-                  >
-                    {tx.type === 'deposit' ? (
-                      <ArrowDownCircle className="h-5 w-5 text-positive" />
-                    ) : (
-                      <ArrowUpCircle className="h-5 w-5 text-accent-primary" />
-                    )}
-                  </div>
+          <div className="space-y-2">
+            {filteredTransactions.map((tx) => {
+              const isWin = tx.type === 'trade_win' || (tx.pnl && tx.pnl > 0);
+              const isLoss = tx.type === 'trade_loss' || (tx.pnl && tx.pnl < 0);
+              const isDeposit = tx.type === 'deposit';
 
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-sm font-medium text-text-primary capitalize">
-                        {tx.type}
-                      </p>
-                      {getStatusBadge(tx.status)}
-                    </div>
-                    <p className="text-xs text-text-tertiary">
-                      {formatDate(tx.timestamp)}
-                    </p>
-                    {tx.address && (
-                      <p className="text-xs text-text-secondary mt-1">
-                        {tx.type === 'deposit' ? 'From: ' : 'To: '}
-                        {formatAddress(tx.address)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Right: Amount + Link */}
-                <div className="text-right">
-                  <p className="text-sm font-mono font-semibold text-text-primary">
-                    {tx.type === 'deposit' ? '+' : '-'}
-                    {formatCurrency(tx.amount)}
-                  </p>
-                  <p className="text-xs text-text-tertiary">{tx.asset}</p>
-
-                  {tx.txHash && tx.status === 'confirmed' && (
-                    <a
-                      href={`https://polygonscan.com/tx/${tx.txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-accent-primary hover:text-accent-hover mt-1"
+              return (
+                <div
+                  key={tx.id}
+                  className="flex flex-wrap items-center justify-between p-3 bg-[#080A0C] border border-[#1B2026] hover:border-[#2A313A] transition-colors gap-3 rounded-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        'p-2 rounded-xs border',
+                        isWin && 'bg-[#20B2AA]/10 border-[#20B2AA]/30 text-[#20B2AA]',
+                        isLoss && 'bg-[#E55353]/10 border-[#E55353]/30 text-[#E55353]',
+                        isDeposit && 'bg-[#D99B00]/10 border-[#D99B00]/30 text-[#D99B00]'
+                      )}
                     >
-                      View on Polygonscan
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
+                      {isDeposit ? (
+                        <ArrowDownCircle className="h-4 w-4" />
+                      ) : isWin ? (
+                        <ArrowUpCircle className="h-4 w-4" />
+                      ) : (
+                        <ArrowDownCircle className="h-4 w-4" />
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-[#E1E4E8] uppercase">
+                          {isDeposit
+                            ? 'POLYMARKET DEPOSIT'
+                            : `${tx.market || 'POLYMARKET'} (${tx.direction || 'TRADE'})`}
+                        </span>
+                        <span
+                          className={cn(
+                            'text-[9px] font-bold uppercase px-1.5 py-0.2 border rounded-xs',
+                            tx.status === 'confirmed'
+                              ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
+                              : 'bg-[#D99B00]/15 text-[#D99B00] border-[#D99B00]/30'
+                          )}
+                        >
+                          {tx.status === 'confirmed' ? 'SETTLED' : 'PENDING'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[#586069] mt-0.5">
+                        {formatDate(tx.timestamp)}
+                        {tx.address && ` • ${formatAddress(tx.address)}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p
+                      className={cn(
+                        'font-bold text-sm tabular-nums',
+                        isWin && 'text-[#20B2AA]',
+                        isLoss && 'text-[#E55353]',
+                        isDeposit && 'text-[#E1E4E8]'
+                      )}
+                    >
+                      {isWin && '+'}
+                      {formatCurrency(tx.pnl !== undefined ? tx.pnl : tx.amount)}
+                    </p>
+                    {tx.txHash && (
+                      <a
+                        href={`https://polygonscan.com/tx/${tx.txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-[#20B2AA] hover:underline mt-0.5"
+                      >
+                        Polygonscan <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 rounded-full bg-bg-tertiary flex items-center justify-center mx-auto mb-4">
-              {filter === 'deposit' ? (
-                <ArrowDownCircle className="h-8 w-8 text-text-tertiary" />
-              ) : filter === 'withdrawal' ? (
-                <ArrowUpCircle className="h-8 w-8 text-text-tertiary" />
-              ) : (
-                <Clock className="h-8 w-8 text-text-tertiary" />
-              )}
-            </div>
-            <p className="text-sm text-text-secondary">
-              {filter === 'all'
-                ? 'No transactions yet'
-                : `No ${filter}s yet`}
-            </p>
-            <p className="text-xs text-text-tertiary mt-1">
-              {filter === 'deposit'
-                ? 'Deposit funds to start trading'
-                : filter === 'withdrawal'
-                ? 'Withdraw your profits anytime'
-                : 'Your transaction history will appear here'}
+          <div className="py-8 text-center text-[#586069]">
+            <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-xs font-bold uppercase">NO TRANSACTION HISTORY AVAILABLE</p>
+            <p className="text-[10px] mt-1 text-[#8B949E]">
+              Settlement trades and deposits will populate here in real-time.
             </p>
           </div>
         )}
-      </CardBody>
-    </Card>
+      </div>
+    </div>
   );
 }

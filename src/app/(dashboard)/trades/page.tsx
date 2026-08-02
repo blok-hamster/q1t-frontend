@@ -5,6 +5,8 @@ import { useSocket } from '@/context/socket-context';
 import { executionApi } from '@/lib/api';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { TradeRow } from '@/components/trades/trade-row';
+import { MobileTradeCard } from '@/components/trades/mobile-trade-card';
+import { MobileFilterSheet } from '@/components/trades/mobile-filter-sheet';
 import { Loading } from '@/components/ui/loading';
 import type { Trade, TradeStatus, TradeDirection, TradeStrategy } from '@/types/trade';
 import type { ExecutionUpdate } from '@/types/websocket';
@@ -92,10 +94,6 @@ export default function TradesPage() {
     );
     const winningTrades = trades.filter((t) => t.status === 'CLOSED_WIN');
     const totalPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-    const avgWin =
-      winningTrades.length > 0
-        ? winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0) / winningTrades.length
-        : 0;
 
     return {
       totalTrades: trades.length,
@@ -104,7 +102,6 @@ export default function TradesPage() {
         ? (winningTrades.length / closedTrades.length) * 100
         : 0,
       totalPnL,
-      avgWin,
     };
   }, [trades]);
 
@@ -141,8 +138,8 @@ export default function TradesPage() {
   }
 
   return (
-    <div className="space-y-4 max-w-[1600px] mx-auto px-4 py-4">
-      {/* Meridian Top Summary Grid */}
+    <div className="space-y-4 max-w-[1600px] mx-auto px-3 sm:px-4 py-4">
+      {/* Top Summary Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           title="TOTAL EXECUTIONS"
@@ -167,8 +164,19 @@ export default function TradesPage() {
         />
       </div>
 
-      {/* Filter Control Bar */}
-      <div className="bg-[#0F1215] border border-[#1B2026] p-3 space-y-3 font-mono">
+      {/* Mobile Filter Sheet & Search Bar (< sm) */}
+      <MobileFilterSheet
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        statusFilter={statusFilter}
+        onStatusChange={(s) => { setStatusFilter(s); setCurrentPage(1); }}
+        directionFilter={directionFilter}
+        onDirectionChange={(d) => { setDirectionFilter(d); setCurrentPage(1); }}
+        totalResults={filteredTrades.length}
+      />
+
+      {/* Desktop Filter Control Bar (>= sm) */}
+      <div className="hidden sm:block bg-[#0F1215] border border-[#1B2026] p-3 space-y-3 font-mono">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#586069]" />
           <input
@@ -186,14 +194,14 @@ export default function TradesPage() {
             <span className="text-[10px] uppercase font-bold">FILTERS:</span>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-[#586069] uppercase font-bold">STATUS:</span>
-            <div className="flex gap-1">
-              {(['all', 'OPEN', 'LIMIT_PENDING', 'CLOSED_WIN', 'CLOSED_LOSS', 'PENDING'] as const).map((status) => (
+          <div className="flex items-center gap-1.5 max-w-full">
+            <span className="text-[10px] text-[#586069] uppercase font-bold shrink-0">STATUS:</span>
+            <div className="flex gap-1 overflow-x-auto scrollbar-none max-w-full py-0.5">
+              {(['all', 'OPEN', 'LIMIT_PENDING', 'CLOSED_WIN', 'CLOSED_LOSS'] as const).map((status) => (
                 <button
                   key={status}
                   onClick={() => { setStatusFilter(status); setCurrentPage(1); }}
-                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-xs transition-colors border ${
+                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-xs transition-colors border shrink-0 ${
                     statusFilter === status
                       ? 'bg-[#20B2AA]/20 text-[#20B2AA] border-[#20B2AA]/40'
                       : 'bg-[#16191E] text-[#8B949E] border-[#1B2026] hover:text-[#E1E4E8]'
@@ -205,14 +213,14 @@ export default function TradesPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-[#586069] uppercase font-bold">DIRECTION:</span>
-            <div className="flex gap-1">
+          <div className="flex items-center gap-1.5 max-w-full">
+            <span className="text-[10px] text-[#586069] uppercase font-bold shrink-0">DIRECTION:</span>
+            <div className="flex gap-1 overflow-x-auto scrollbar-none max-w-full py-0.5">
               {(['all', 'UP', 'DOWN'] as const).map((direction) => (
                 <button
                   key={direction}
                   onClick={() => { setDirectionFilter(direction); setCurrentPage(1); }}
-                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-xs transition-colors border ${
+                  className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-xs transition-colors border shrink-0 ${
                     directionFilter === direction
                       ? 'bg-[#20B2AA]/20 text-[#20B2AA] border-[#20B2AA]/40'
                       : 'bg-[#16191E] text-[#8B949E] border-[#1B2026] hover:text-[#E1E4E8]'
@@ -230,10 +238,18 @@ export default function TradesPage() {
         </div>
       </div>
 
-      {/* Main Ledger Table */}
+      {/* Main Ledger Table / Mobile Cards */}
       {filteredTrades.length > 0 ? (
         <div className="bg-[#0F1215] border border-[#1B2026]">
-          <div className="overflow-x-auto">
+          {/* Mobile Card List (< sm) */}
+          <div className="sm:hidden p-3 space-y-2">
+            {paginatedTrades.map((trade) => (
+              <MobileTradeCard key={trade._id} trade={trade} />
+            ))}
+          </div>
+
+          {/* Desktop Table View (>= sm) */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-collapse font-mono text-xs">
               <thead>
                 <tr className="bg-[#16191E] border-b border-[#1B2026] text-[10px] text-[#586069] uppercase tracking-[0.1em]">

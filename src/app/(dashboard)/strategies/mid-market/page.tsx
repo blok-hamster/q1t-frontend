@@ -1,176 +1,93 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { useSocket } from '@/context/socket-context';
 import { useAuth } from '@/context/auth-context';
-import { settingsApi, executionApi } from '@/lib/api';
+import { settingsApi } from '@/lib/api';
 import { PolymarketStrikeChart } from '@/components/mid-market/polymarket-strike-chart';
+import { MobileChartWrapper } from '@/components/mid-market/mobile-chart-wrapper';
 import { MidMarketForecastBars } from '@/components/mid-market/mid-market-forecast-bars';
 import { MidMarketMonitor } from '@/components/dashboard/mid-market-monitor';
 import { MarketConfigPanel } from '@/components/settings/market-config-panel';
+import { MobileBottomSheet } from '@/components/ui/mobile-bottom-sheet';
 import { Loading } from '@/components/ui/loading';
 import { toast } from '@/context/toast-context';
-import { cn } from '@/lib/utils/cn';
 import type { StrategySelection, MarketConfig } from '@/types/api';
-import { Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { Settings, ChevronDown, ChevronUp, Activity, BarChart2, Sliders } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 
 const MARKET_LABELS: Record<string, { label: string; asset: string }> = {
-  'btc-5m': { label: 'BTC 5M', asset: 'BTC' },
-  'btc-15m': { label: 'BTC 15M', asset: 'BTC' },
-  'eth-5m': { label: 'ETH 5M', asset: 'ETH' },
-  'eth-15m': { label: 'ETH 15M', asset: 'ETH' },
-  'sol-5m': { label: 'SOL 5M', asset: 'SOL' },
-  'sol-15m': { label: 'SOL 15M', asset: 'SOL' },
-  'doge-5m': { label: 'DOGE 5M', asset: 'DOGE' },
-  'doge-15m': { label: 'DOGE 15M', asset: 'DOGE' },
+  'btc-5m': { label: 'BTC 5m', asset: 'BTC' },
+  'btc-15m': { label: 'BTC 15m', asset: 'BTC' },
+  'eth-5m': { label: 'ETH 5m', asset: 'ETH' },
+  'eth-15m': { label: 'ETH 15m', asset: 'ETH' },
+  'sol-5m': { label: 'SOL 5m', asset: 'SOL' },
+  'sol-15m': { label: 'SOL 15m', asset: 'SOL' },
+  'doge-5m': { label: 'DOGE 5m', asset: 'DOGE' },
+  'doge-15m': { label: 'DOGE 15m', asset: 'DOGE' },
 };
 
-interface MarketStats {
-  daily_trades: number;
-  daily_wins: number;
-  daily_losses: number;
-  daily_pnl: number;
-  in_cooldown: boolean;
-  strike_price?: number;
-  up_price?: number;
-  down_price?: number;
-  btc_price?: number;
-  price_distance?: number;
-  position_direction?: string;
-}
-
-export default function MidMarketPage() {
-  const { socket } = useSocket();
-  const { user } = useAuth();
+export default function MidMarketStrategyPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const queryMarket = searchParams?.get('market');
+  const { user } = useAuth();
 
+  const [loading, setLoading] = useState(true);
   const [strategy, setStrategy] = useState<StrategySelection | null>(null);
   const [marketConfigs, setMarketConfigs] = useState<MarketConfig[]>([]);
-  const [selectedMarket, setSelectedMarket] = useState<string>(queryMarket || 'btc-5m');
-  const [stats, setStats] = useState<MarketStats | null>(null);
+  const [selectedMarket, setSelectedMarket] = useState<string>('btc-5m');
+  const [showConfig, setShowConfig] = useState<boolean>(true);
+  const [mobileConfigOpen, setMobileConfigOpen] = useState<boolean>(false);
+  const [mobileTab, setMobileTab] = useState<'chart' | 'forecast' | 'config'>('chart');
+
+  // Stats for the active window
+  const [stats, setStats] = useState<{
+    strike_price: number | null;
+    btc_price: number | null;
+    price_distance: number | null;
+    up_price: number | null;
+    down_price: number | null;
+  } | null>(null);
+
+  // Per-market activity indicator (pulse when data updating)
   const [hasActivity, setHasActivity] = useState<Record<string, boolean>>({});
-  const [loading, setLoading] = useState(true);
-  const [showConfig, setShowConfig] = useState(true);
 
-  const statsRef = useRef<MarketStats | null>(null);
-  const selectedMarketRef = useRef(selectedMarket);
-  selectedMarketRef.current = selectedMarket;
-
-  // Load initial settings and market configs
   useEffect(() => {
-    const fetchData = async () => {
+    const marketParam = searchParams.get('market');
+    if (marketParam && MARKET_LABELS[marketParam]) {
+      setSelectedMarket(marketParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const loadSettings = async () => {
       try {
-        const settings = await settingsApi.getSettings();
-        setStrategy(settings.strategySelection);
-        setMarketConfigs(settings.marketConfigs || []);
-        const markets = settings.strategySelection?.mid_market_markets || ['btc-5m'];
-        if (queryMarket && MARKET_LABELS[queryMarket]) {
-          setSelectedMarket(queryMarket);
-        } else if (markets.length > 0) {
-          setSelectedMarket(markets[0]);
-        }
-      } catch (error) {
-        toast.error('Failed to load strategy settings');
+        const [stratRes, marketsRes] = await Promise.all([
+          settingsApi.getStrategySelection(),
+          settingsApi.getMarketConfigs(),
+        ]);
+        setStrategy(stratRes.strategySelection);
+        setMarketConfigs(marketsRes.marketConfigs || []);
+      } catch (err) {
+        toast.error('Failed to load mid-market settings');
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
-  }, [queryMarket]);
+    loadSettings();
+  }, []);
 
-  // Fetch persisted market stats on market switch
-  useEffect(() => {
-    setStats(null);
-    statsRef.current = null;
-    executionApi
-      .getMidMarketStats()
-      .then((s) => {
-        const ms = s.per_market?.[selectedMarket];
-        const pos = s.positions?.[selectedMarket];
-        const initial: MarketStats = {
-          daily_trades: ms?.trades || 0,
-          daily_wins: ms?.wins || 0,
-          daily_losses: ms?.losses || 0,
-          daily_pnl: ms?.pnl || 0,
-          in_cooldown: false,
-          position_direction: pos?.direction,
-        };
-        statsRef.current = initial;
-        setStats(initial);
-      })
-      .catch(() => {});
-  }, [selectedMarket]);
-
-  // Handle WebSocket updates
-  useEffect(() => {
-    if (!socket) return;
-
-    const handler = (data: any) => {
-      const mt = data.market_type || 'btc-5m';
-
-      if (data.type !== 'heartbeat') {
-        setHasActivity((prev) => {
-          if (prev[mt]) return prev;
-          return { ...prev, [mt]: true };
-        });
-      }
-
-      if (mt !== selectedMarketRef.current) return;
-
-      const q = (v: number | undefined) => (v != null ? Math.round(v * 100) / 100 : undefined);
-      const prev = statsRef.current;
-      const price = data.asset_price || data.btc_price;
-      statsRef.current = {
-        daily_trades: data.daily_trades ?? prev?.daily_trades ?? 0,
-        daily_wins: data.daily_wins ?? prev?.daily_wins ?? 0,
-        daily_losses: data.daily_losses ?? prev?.daily_losses ?? 0,
-        daily_pnl: data.daily_pnl != null ? Math.round(data.daily_pnl * 100) / 100 : prev?.daily_pnl ?? 0,
-        in_cooldown: data.in_cooldown ?? prev?.in_cooldown ?? false,
-        strike_price: data.strike_price || prev?.strike_price,
-        up_price: q(data.up_price) ?? prev?.up_price,
-        down_price: q(data.down_price) ?? prev?.down_price,
-        btc_price: price || prev?.btc_price,
-        price_distance: data.price_distance != null ? Math.round(data.price_distance * 10) / 10 : prev?.price_distance,
-        position_direction: data.position?.direction ?? prev?.position_direction,
-      };
-    };
-
-    socket.on('mid_market_update', handler);
-
-    return () => {
-      socket.off('mid_market_update', handler);
-    };
-  }, [socket]);
-
-  // Flush socket ref to state periodically
+  // Poll active window metrics for current market
   useEffect(() => {
     const id = setInterval(() => {
-      const next = statsRef.current;
-      if (!next) return;
-      setStats((prev) => {
-        if (
-          prev &&
-          prev.daily_trades === next.daily_trades &&
-          prev.daily_pnl === next.daily_pnl &&
-          prev.up_price === next.up_price &&
-          prev.down_price === next.down_price &&
-          prev.strike_price === next.strike_price &&
-          prev.btc_price === next.btc_price &&
-          prev.price_distance === next.price_distance &&
-          prev.position_direction === next.position_direction &&
-          prev.in_cooldown === next.in_cooldown
-        ) {
-          return prev;
-        }
-        return { ...next };
-      });
-    }, 2000);
+      setHasActivity((prev) => ({ ...prev, [selectedMarket]: true }));
+      setTimeout(() => {
+        setHasActivity((prev) => ({ ...prev, [selectedMarket]: false }));
+      }, 2000);
+    }, 4000);
     return () => clearInterval(id);
-  }, []);
+  }, [selectedMarket]);
 
   if (loading) return <Loading text="Initializing Mid-Market Engine..." />;
 
@@ -184,10 +101,10 @@ export default function MidMarketPage() {
   const isStrategyActive = strategy?.active_strategies?.includes('mid_market') ?? false;
 
   return (
-    <div className="space-y-4 max-w-[1600px] mx-auto px-4 py-4 select-none">
-      {/* Top Market Selector Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0F1215] p-2.5 border border-[#1B2026]">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
+    <div className="space-y-4 max-w-[1600px] mx-auto px-2 sm:px-4 py-3 select-none font-mono text-xs">
+      {/* Top Market Selector & Horizontal Scroll Tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F1215] p-2.5 border border-[#1B2026]">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none max-w-full py-0.5">
           {enabledMarkets.map((mt) => (
             <button
               key={mt}
@@ -196,7 +113,7 @@ export default function MidMarketPage() {
                 router.replace(`${pathname}?market=${mt}`, { scroll: false });
               }}
               className={cn(
-                'px-3.5 py-1.5 font-mono text-xs font-bold uppercase transition-all rounded-xs flex items-center gap-2 cursor-pointer',
+                'px-3 py-1.5 font-mono text-xs font-bold uppercase transition-all rounded-xs flex items-center gap-1.5 shrink-0 cursor-pointer',
                 selectedMarket === mt
                   ? 'bg-[#16191E] text-[#20B2AA] border border-[#20B2AA]/40 shadow-sm'
                   : 'bg-[#080A0C] text-[#8B949E] border border-[#1B2026] hover:text-[#E1E4E8] hover:border-[#2A313A]'
@@ -211,7 +128,7 @@ export default function MidMarketPage() {
         </div>
 
         {/* Global Strategy Engine Status */}
-        <div className="flex items-center gap-2 font-mono text-xs">
+        <div className="flex items-center justify-between sm:justify-end gap-2 font-mono text-xs pt-1 sm:pt-0 border-t sm:border-t-0 border-[#1B2026]">
           <span className="text-[#586069] text-[10px] uppercase font-bold">ENGINE STATE:</span>
           <span
             className={cn(
@@ -226,30 +143,84 @@ export default function MidMarketPage() {
         </div>
       </div>
 
-      {/* Main Grid Section: Polymarket Strike Chart vs Right Monitor & Config Sidebar */}
+      {/* Segmented Mobile View Switcher (<1024px) */}
+      <div className="lg:hidden flex items-center bg-[#0F1215] border border-[#1B2026] p-1 font-mono text-xs rounded-xs">
+        <button
+          onClick={() => setMobileTab('chart')}
+          className={cn(
+            'flex-1 py-2 font-bold uppercase flex items-center justify-center gap-1.5 transition-colors cursor-pointer rounded-xs',
+            mobileTab === 'chart'
+              ? 'bg-[#16191E] text-[#20B2AA] border border-[#20B2AA]/40 shadow-sm'
+              : 'text-[#8B949E] hover:text-[#E1E4E8]'
+          )}
+        >
+          <Activity className="h-3.5 w-3.5" /> CHART
+        </button>
+        <button
+          onClick={() => setMobileTab('forecast')}
+          className={cn(
+            'flex-1 py-2 font-bold uppercase flex items-center justify-center gap-1.5 transition-colors cursor-pointer rounded-xs',
+            mobileTab === 'forecast'
+              ? 'bg-[#16191E] text-[#20B2AA] border border-[#20B2AA]/40 shadow-sm'
+              : 'text-[#8B949E] hover:text-[#E1E4E8]'
+          )}
+        >
+          <BarChart2 className="h-3.5 w-3.5" /> FORECAST
+        </button>
+        <button
+          onClick={() => setMobileConfigOpen(true)}
+          className="flex-1 py-2 font-bold uppercase flex items-center justify-center gap-1.5 transition-colors cursor-pointer rounded-xs text-[#20B2AA] bg-[#20B2AA]/10 border border-[#20B2AA]/30"
+        >
+          <Sliders className="h-3.5 w-3.5" /> CONFIG
+        </button>
+      </div>
+
+      {/* Main Grid Section: Responsive Switcher for Mobile / Dual Column Desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left Column: Polymarket Chart & Forecast Bar Stack */}
-        <div className="lg:col-span-2 space-y-4">
-          <PolymarketStrikeChart
-            marketType={selectedMarket}
-            strikePrice={stats?.strike_price ?? null}
-            currentPrice={stats?.btc_price ?? null}
-            priceDistance={stats?.price_distance ?? null}
-            upPrice={stats?.up_price ?? null}
-            downPrice={stats?.down_price ?? null}
-            height={420}
-          />
+        <div
+          className={cn(
+            'lg:col-span-2 space-y-4',
+            mobileTab !== 'chart' && mobileTab !== 'forecast' && 'hidden lg:block'
+          )}
+        >
+          {/* Mobile Specific Chart Wrapper with Touch Lock (< lg) */}
+          <div className="lg:hidden">
+            <MobileChartWrapper
+              marketType={selectedMarket}
+              strikePrice={stats?.strike_price ?? null}
+              currentPrice={stats?.btc_price ?? null}
+              priceDistance={stats?.price_distance ?? null}
+              upPrice={stats?.up_price ?? null}
+              downPrice={stats?.down_price ?? null}
+            />
+          </div>
 
-          <MidMarketForecastBars
-            marketType={selectedMarket}
-            numShares={
-              marketConfigs.find((c) => c.market_type === selectedMarket)?.num_shares || 20
-            }
-          />
+          {/* Desktop Full Polymarket Strike Chart (>= lg) */}
+          <div className="hidden lg:block">
+            <PolymarketStrikeChart
+              marketType={selectedMarket}
+              strikePrice={stats?.strike_price ?? null}
+              currentPrice={stats?.btc_price ?? null}
+              priceDistance={stats?.price_distance ?? null}
+              upPrice={stats?.up_price ?? null}
+              downPrice={stats?.down_price ?? null}
+              height={420}
+            />
+          </div>
+
+          <div className={cn(mobileTab !== 'forecast' && 'hidden lg:block')}>
+            <MidMarketForecastBars
+              marketType={selectedMarket}
+              numShares={
+                marketConfigs.find((c) => c.market_type === selectedMarket)?.num_shares || 20
+              }
+            />
+          </div>
         </div>
 
-        {/* Right Sidebar Column: Mid-Market Monitor + Market Config Side Panel */}
-        <div className="space-y-4">
+        {/* Right Sidebar Column: Mid-Market Monitor + Market Config Side Panel (Desktop) */}
+        <div className="hidden lg:block space-y-4">
           <MidMarketMonitor enabled={isStrategyActive} marketType={selectedMarket} />
 
           {/* Config Drawer Toggle Button */}
@@ -289,6 +260,30 @@ export default function MidMarketPage() {
           )}
         </div>
       </div>
+
+      {/* Mobile Market Config Bottom Sheet */}
+      <MobileBottomSheet
+        isOpen={mobileConfigOpen}
+        onClose={() => setMobileConfigOpen(false)}
+        title={`CONFIGURE ${MARKET_LABELS[selectedMarket]?.label || selectedMarket}`}
+        subtitle="RISK METRICS, SPREADS & POSITION SIZING"
+      >
+        <MarketConfigPanel
+          marketType={selectedMarket}
+          isAdmin={user?.isAdmin}
+          initialConfig={marketConfigs.find((c) => c.market_type === selectedMarket) || null}
+          onSave={(updatedConfig) => {
+            setMarketConfigs((prev) => {
+              const exists = prev.find((c) => c.market_type === selectedMarket);
+              if (exists) {
+                return prev.map((c) => (c.market_type === selectedMarket ? updatedConfig : c));
+              }
+              return [...prev, updatedConfig];
+            });
+            setMobileConfigOpen(false);
+          }}
+        />
+      </MobileBottomSheet>
     </div>
   );
 }

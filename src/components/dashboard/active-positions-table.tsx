@@ -254,38 +254,35 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
 
   return (
     <div className="bg-[#0F1215] border border-[#1B2026] font-mono select-none">
-      {/* Header Bar */}
-      <div className="p-3.5 border-b border-[#1B2026] flex items-center justify-between bg-[#16191E]/80">
-        <div className="flex items-center gap-2.5">
-          <div className="relative flex items-center justify-center">
-            <Radio className="h-4 w-4 text-[#20B2AA]" />
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#20B2AA] animate-ping" />
-          </div>
-          <div>
+      {/* Header Bar (Mobile-Responsive Header & Badges) */}
+      <div className="p-3 sm:p-3.5 border-b border-[#1B2026] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-[#16191E]/80">
+        <div className="flex items-center justify-between w-full sm:w-auto">
+          <div className="flex items-center gap-2.5">
+            <div className="relative flex items-center justify-center">
+              <Radio className="h-4 w-4 text-[#20B2AA]" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#20B2AA] animate-ping" />
+            </div>
             <h3 className="text-xs font-bold text-[#E1E4E8] uppercase tracking-[0.12em]">
               ACTIVE TRADING MARKETS
             </h3>
-            <p className="text-[10px] text-[#586069] uppercase mt-0.5">
-              CLICK ANY MARKET TO OPEN LIVE STRATEGY MONITOR
-            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {openPositionsCount > 0 && (
-            <span className="px-2.5 py-1 text-xs font-black uppercase rounded-xs bg-[#20B2AA] text-[#080A0C] shadow-[0_0_15px_rgba(32,178,170,0.5)] animate-pulse flex items-center gap-1">
-              <Flame className="h-3.5 w-3.5" />
+            <span className="px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-black uppercase rounded-xs bg-[#20B2AA] text-[#080A0C] shadow-[0_0_15px_rgba(32,178,170,0.5)] animate-pulse flex items-center gap-1">
+              <Flame className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               {openPositionsCount} OPEN POSITION{openPositionsCount > 1 ? 'S' : ''}
             </span>
           )}
-          <span className="px-2 py-1 text-[10px] font-bold uppercase rounded-xs bg-[#16191E] text-[#8B949E] border border-[#1B2026]">
+          <span className="px-2 py-1 text-[9px] sm:text-[10px] font-bold uppercase rounded-xs bg-[#16191E] text-[#8B949E] border border-[#1B2026]">
             {visibleMarkets.length} TRADING MARKET{visibleMarkets.length > 1 ? 'S' : ''}
           </span>
         </div>
       </div>
 
       {/* Grid of Active Trading Market Cards */}
-      <div className="p-3.5">
+      <div className="p-3 sm:p-3.5">
         {visibleMarkets.length === 0 ? (
           <div className="text-center py-8 text-[#586069] text-xs uppercase tracking-wider">
             NO MARKETS ENABLED. GO TO SETTINGS TO ACTIVATE MARKETS.
@@ -299,29 +296,34 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
         )}
       </div>
 
-      {/* Bottom Summary Bar */}
-      <div className="p-3 border-t border-[#1B2026] bg-[#16191E]/50 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-[#586069]">
-          <Activity className="h-3.5 w-3.5 text-[#20B2AA]" />
-          <span>MID-MARKET STRATEGY MONITOR</span>
-        </div>
-
-        <div className="flex items-center gap-6 text-xs tabular-nums">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-[#586069] uppercase font-bold">DAILY TRADES:</span>
-            <span className="font-bold text-[#E1E4E8]">{midStats.trades}</span>
+      {/* Responsive Mobile Summary Bar */}
+      <div className="p-2.5 sm:p-3 border-t border-[#1B2026] bg-[#16191E]/50">
+        <div className="grid grid-cols-3 sm:flex sm:items-center sm:justify-end gap-2 sm:gap-6 text-xs tabular-nums font-mono text-center sm:text-right">
+          <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-0.5 sm:gap-1.5">
+            <span className="text-[9px] sm:text-[10px] text-[#586069] uppercase font-bold tracking-tight shrink-0">
+              TRADES:
+            </span>
+            <span className="font-bold text-xs text-[#E1E4E8] shrink-0">
+              {midStats.trades}
+            </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-[#586069] uppercase font-bold">W / L:</span>
-            <span className="font-bold text-[#20B2AA]">{midStats.wins}</span>
-            <span className="text-[#586069]">/</span>
-            <span className="font-bold text-[#E55353]">{midStats.losses}</span>
+          <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-0.5 sm:gap-1.5">
+            <span className="text-[9px] sm:text-[10px] text-[#586069] uppercase font-bold tracking-tight shrink-0">
+              W / L:
+            </span>
+            <div className="flex items-center gap-0.5 text-xs font-bold shrink-0">
+              <span className="text-[#20B2AA]">{midStats.wins}</span>
+              <span className="text-[#586069]">/</span>
+              <span className="text-[#E55353]">{midStats.losses}</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-[#586069] uppercase font-bold">ACCUMULATED P&L:</span>
-            <span className={`font-bold ${midStats.pnl >= 0 ? 'text-[#20B2AA]' : 'text-[#E55353]'}`}>
+          <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-0.5 sm:gap-1.5">
+            <span className="text-[9px] sm:text-[10px] text-[#586069] uppercase font-bold tracking-tight shrink-0">
+              P&L:
+            </span>
+            <span className={`font-bold text-xs shrink-0 ${midStats.pnl >= 0 ? 'text-[#20B2AA]' : 'text-[#E55353]'}`}>
               {midStats.pnl >= 0 ? '+' : ''}${midStats.pnl.toFixed(2)}
             </span>
           </div>
@@ -363,7 +365,7 @@ function MarketCard({ market, state }: { market: typeof ALL_MARKETS[0]; state: M
             : 'border-[#1B2026]/40 bg-[#16191E]/40 opacity-70 group-hover:opacity-100'
         }`}
       >
-        {/* EXTREMELY OBVIOUS OPEN POSITION BANNER */}
+        {/* OPEN POSITION BANNER */}
         {pos && (
           <div
             className={`-mx-3 -mt-3 mb-2 px-3 py-1.5 font-black text-[11px] uppercase tracking-wider flex items-center justify-between ${

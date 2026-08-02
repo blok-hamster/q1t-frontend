@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useSocket } from '@/context/socket-context';
 import { executionApi, dashboardApi } from '@/lib/api';
 import { ActivePositionsTable } from '@/components/dashboard/active-positions-table';
-import { PriceTicker } from '@/components/dashboard/price-ticker';
 import { MetricCard } from '@/components/dashboard/metric-card';
+import { MobileMetricCarousel } from '@/components/dashboard/mobile-metric-carousel';
+import { MobileTradeCard } from '@/components/trades/mobile-trade-card';
 import { ROUTES } from '@/lib/constants';
 import { formatTimeAgo, formatCurrency } from '@/lib/utils/format';
+import { cn } from '@/lib/utils/cn';
 import type { ExecutionUpdate } from '@/types/websocket';
 import type { Trade } from '@/types/trade';
 import { Wallet, TrendingUp, BarChart3, Award, ArrowUp, ArrowDown, ArrowRight } from 'lucide-react';
@@ -123,9 +125,12 @@ export default function DashboardPage() {
   }, [socket]);
 
   return (
-    <div className="space-y-4 max-w-[1600px] mx-auto px-4 py-4">
-      {/* Metrics Grid (Meridian Top 4-Card Summary Bar) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div className="space-y-4 max-w-[1600px] mx-auto px-3 sm:px-4 py-4">
+      {/* Mobile Metric Carousel View (< sm screens) */}
+      <MobileMetricCarousel metrics={metrics} loading={loadingMetrics} />
+
+      {/* Desktop Metrics Grid (>= sm screens) */}
+      <div className="hidden sm:grid sm:grid-cols-4 gap-3">
         <MetricCard
           title="TOTAL BALANCE"
           value={`$${metrics.balance.toFixed(2)}`}
@@ -161,7 +166,7 @@ export default function DashboardPage() {
       {/* Active Positions Table */}
       <ActivePositionsTable />
 
-      {/* Recent Transactions Table (Meridian Style) */}
+      {/* Recent Transactions Section */}
       <div className="bg-[#0F1215] border border-[#1B2026]">
         <div className="p-3.5 border-b border-[#1B2026] flex items-center justify-between bg-[#16191E]/60">
           <div>
@@ -174,9 +179,9 @@ export default function DashboardPage() {
           </div>
           <Link
             href={ROUTES.TRADES}
-            className="text-xs font-mono text-[#20B2AA] hover:underline flex items-center gap-1"
+            className="text-xs font-mono text-[#20B2AA] hover:underline flex items-center gap-1 font-bold"
           >
-            VIEW ALL PAYMENTS <ArrowRight className="h-3 w-3" />
+            VIEW ALL <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
 
@@ -185,72 +190,82 @@ export default function DashboardPage() {
             Loading transaction ledger...
           </div>
         ) : recentTrades.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse font-mono text-xs">
-              <thead>
-                <tr className="bg-[#16191E] border-b border-[#1B2026] text-[10px] text-[#586069] uppercase tracking-[0.1em]">
-                  <th className="px-3 py-2">DATE / TIME</th>
-                  <th className="px-3 py-2">MARKET</th>
-                  <th className="px-3 py-2">DIRECTION</th>
-                  <th className="px-3 py-2 text-right">SIZE (USD)</th>
-                  <th className="px-3 py-2 text-right">P&L AMOUNT</th>
-                  <th className="px-3 py-2 text-right">STATUS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1B2026]/60">
-                {recentTrades.map((trade) => {
-                  const isWin = trade.status === 'CLOSED_WIN';
-                  const isLoss = trade.status === 'CLOSED_LOSS';
-                  const isOpen = trade.status === 'OPEN';
-                  const pnl = trade.pnl || 0;
+          <div>
+            {/* Mobile Touch Cards (< sm) */}
+            <div className="sm:hidden p-3 space-y-2">
+              {recentTrades.map((trade) => (
+                <MobileTradeCard key={trade._id} trade={trade} />
+              ))}
+            </div>
 
-                  return (
-                    <tr key={trade._id} className="hover:bg-[#16191E]/40 transition-colors">
-                      <td className="px-3 py-2 text-[#8B949E]">
-                        {formatTimeAgo(trade.createdAt)}
-                      </td>
-                      <td className="px-3 py-2 text-[#E1E4E8] font-bold">
-                        {trade.market_slug.toUpperCase()}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={`inline-flex items-center gap-1 font-bold ${
-                          trade.direction === 'UP' ? 'text-[#20B2AA]' : 'text-[#E55353]'
-                        }`}>
-                          {trade.direction === 'UP' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                          {trade.direction}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-[#8B949E]">
-                        {formatCurrency(trade.size_usd)}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums font-bold">
-                        {isOpen ? (
-                          <span className="text-[#586069]">—</span>
-                        ) : (
-                          <span className={isWin ? 'text-[#20B2AA]' : isLoss ? 'text-[#E55353]' : 'text-[#8B949E]'}>
-                            {pnl > 0 ? '+' : ''}
-                            {formatCurrency(pnl)}
+            {/* Desktop Table View (>= sm) */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left border-collapse font-mono text-xs">
+                <thead>
+                  <tr className="bg-[#16191E] border-b border-[#1B2026] text-[10px] text-[#586069] uppercase tracking-[0.1em]">
+                    <th className="px-3 py-2">DATE / TIME</th>
+                    <th className="px-3 py-2">MARKET</th>
+                    <th className="px-3 py-2">DIRECTION</th>
+                    <th className="px-3 py-2 text-right">SIZE (USD)</th>
+                    <th className="px-3 py-2 text-right">P&L AMOUNT</th>
+                    <th className="px-3 py-2 text-right">STATUS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#1B2026]/60">
+                  {recentTrades.map((trade) => {
+                    const isWin = trade.status === 'CLOSED_WIN';
+                    const isLoss = trade.status === 'CLOSED_LOSS';
+                    const isOpen = trade.status === 'OPEN';
+                    const pnl = trade.pnl || 0;
+
+                    return (
+                      <tr key={trade._id} className="hover:bg-[#16191E]/40 transition-colors">
+                        <td className="px-3 py-2 text-[#8B949E]">
+                          {formatTimeAgo(trade.createdAt)}
+                        </td>
+                        <td className="px-3 py-2 text-[#E1E4E8] font-bold">
+                          {trade.market_slug.toUpperCase()}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`inline-flex items-center gap-1 font-bold ${
+                            trade.direction === 'UP' ? 'text-[#20B2AA]' : 'text-[#E55353]'
+                          }`}>
+                            {trade.direction === 'UP' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                            {trade.direction}
                           </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <span className={`inline-block px-1.5 py-0.5 text-[10px] font-bold uppercase rounded-xs border ${
-                          isWin
-                            ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
-                            : isLoss
-                            ? 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30'
-                            : isOpen
-                            ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/20'
-                            : 'bg-[#D99B00]/15 text-[#D99B00] border-[#D99B00]/30'
-                        }`}>
-                          {isOpen ? 'OPEN' : isWin ? 'SETTLED WIN' : isLoss ? 'SETTLED LOSS' : trade.status}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-[#8B949E]">
+                          {formatCurrency(trade.size_usd)}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums font-bold">
+                          {isOpen ? (
+                            <span className="text-[#586069]">—</span>
+                          ) : (
+                            <span className={isWin ? 'text-[#20B2AA]' : isLoss ? 'text-[#E55353]' : 'text-[#8B949E]'}>
+                              {pnl > 0 ? '+' : ''}
+                              {formatCurrency(pnl)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <span className={`inline-block px-1.5 py-0.5 text-[10px] font-bold uppercase rounded-xs border ${
+                            isWin
+                              ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
+                              : isLoss
+                              ? 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30'
+                              : isOpen
+                              ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/20'
+                              : 'bg-[#D99B00]/15 text-[#D99B00] border-[#D99B00]/30'
+                          }`}>
+                            {isOpen ? 'OPEN' : isWin ? 'SETTLED WIN' : isLoss ? 'SETTLED LOSS' : trade.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : (
           <div className="text-center py-8 font-mono">

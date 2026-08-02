@@ -197,15 +197,17 @@ export function PolymarketStrikeChart({
     strikePrice != null ? activePrice >= strikePrice : true;
   const lineColor = isAboveStrike ? '#20B2AA' : '#E55353';
 
-  // Initialize Lightweight Chart ONCE
+  // Initialize Lightweight Chart ONCE with responsive height
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
     const initialWidth = chartContainerRef.current.clientWidth || 600;
+    const isMobile = window.innerWidth < 640;
+    const effectiveHeight = isMobile ? 280 : height;
 
     const chart = createChart(chartContainerRef.current, {
       width: initialWidth,
-      height,
+      height: effectiveHeight,
       layout: {
         background: { color: 'transparent' },
         textColor: '#8B949E',
@@ -231,12 +233,15 @@ export function PolymarketStrikeChart({
         timeVisible: true,
         secondsVisible: false,
       },
+      handleScroll: {
+        vertTouchDrag: false, // Prevent touch vertical scroll trapping on mobile
+      },
     });
 
     const areaSeries = chart.addAreaSeries({
-      lineColor: '#20B2AA',
-      topColor: 'rgba(32, 178, 170, 0.25)',
-      bottomColor: 'rgba(32, 178, 170, 0.00)',
+      lineColor,
+      topColor: `${lineColor}33`,
+      bottomColor: `${lineColor}00`,
       lineWidth: 2,
     });
 
@@ -255,8 +260,10 @@ export function PolymarketStrikeChart({
     const resizeObserver = new ResizeObserver((entries) => {
       if (entries.length > 0 && chartRef.current) {
         const newWidth = entries[0].contentRect.width;
+        const newIsMobile = window.innerWidth < 640;
+        const newHeight = newIsMobile ? 280 : height;
         if (newWidth > 0) {
-          chartRef.current.applyOptions({ width: newWidth });
+          chartRef.current.applyOptions({ width: newWidth, height: newHeight });
         }
       }
     });
@@ -269,7 +276,7 @@ export function PolymarketStrikeChart({
       lineSeriesRef.current = null;
       candleSeriesRef.current = null;
     };
-  }, [height]);
+  }, [height, lineColor]);
 
   // Update Series Visibility
   useEffect(() => {
