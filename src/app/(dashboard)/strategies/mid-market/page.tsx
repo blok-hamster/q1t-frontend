@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useSocket } from '@/context/socket-context';
 import { useAuth } from '@/context/auth-context';
 import { settingsApi, executionApi } from '@/lib/api';
@@ -44,6 +44,8 @@ export default function MidMarketPage() {
   const { socket } = useSocket();
   const { user } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const queryMarket = searchParams?.get('market');
 
   const [strategy, setStrategy] = useState<StrategySelection | null>(null);
@@ -189,7 +191,10 @@ export default function MidMarketPage() {
           {enabledMarkets.map((mt) => (
             <button
               key={mt}
-              onClick={() => setSelectedMarket(mt)}
+              onClick={() => {
+                setSelectedMarket(mt);
+                router.replace(`${pathname}?market=${mt}`, { scroll: false });
+              }}
               className={cn(
                 'px-3.5 py-1.5 font-mono text-xs font-bold uppercase transition-all rounded-xs flex items-center gap-2 cursor-pointer',
                 selectedMarket === mt

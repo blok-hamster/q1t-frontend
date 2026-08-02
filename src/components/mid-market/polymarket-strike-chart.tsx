@@ -47,6 +47,8 @@ export function PolymarketStrikeChart({
   const lineSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const priceLineRef = useRef<IPriceLine | null>(null);
+  const isInitializedRef = useRef(false);
+  const lastMidMarketTickRef = useRef(0);
 
   const [viewMode, setViewMode] = useState<'line' | 'candlestick'>('line');
   const [timeframe, setTimeframe] = useState<'5m' | '15m' | '1h' | '1d'>('5m');
@@ -137,9 +139,6 @@ export function PolymarketStrikeChart({
     };
   }, [marketType, symbol, timeframe, strikePrice, defaultPriceForAsset]);
 
-  const isInitializedRef = useRef(false);
-  const lastTimeRef = useRef<number>(0);
-
   // Listen to Socket feeds and strictly filter for current marketType
   useEffect(() => {
     if (!socket) return;
@@ -159,43 +158,37 @@ export function PolymarketStrikeChart({
           // Lightweight charts throws if time goes backwards; safe to ignore
         }
       }
-
-      // Also keep historyData in sync for fallback re-renders
-      setHistoryData((prev) => {
-        const last = prev[prev.length - 1];
-        if (last && last.time === nowSec) {
-          const updated = [...prev];
-          updated[updated.length - 1] = { time: nowSec, value: price };
-          return updated;
-        }
-        return [...prev, { time: nowSec, value: price }].slice(-500);
-      });
     };
 
-    // BTC-only socket stream
-    const handleChart = (candle: any) => {
-      if (!marketType.toLowerCase().startsWith('btc')) return;
-      if (candle?.close && candle.close > 0) {
-        appendLiveTick(candle.close);
-      }
-    };
-
-    // Engine mid_market_update socket stream
+    // Engine mid_market_update — PRIMARY source for all markets including BTC
     const handleMidMarket = (data: any) => {
       const mt = (data?.market_type || 'btc-5m').toLowerCase();
       if (mt !== marketType.toLowerCase()) return;
       const price = data?.asset_price || (mt.startsWith('btc') ? data?.btc_price : null);
       if (price && price > 0) {
+        lastMidMarketTickRef.current = Date.now();
         appendLiveTick(price);
       }
     };
 
-    socket.on('chart_update', handleChart);
+    // BTC chart_update — FALLBACK only: skip if mid_market_update fired within last 3s
+    const handleChart = (candle: any) => {
+      if (!marketType.toLowerCase().startsWith('btc')) return;
+      if (candle?.close && candle.close > 0) {
+        const msSinceEngine = Date.now() - lastMidMarketTickRef.current;
+        if (msSinceEngine > 3000) {
+          // Engine hasn't ticked recently — use raw candle as fallback
+          appendLiveTick(candle.close);
+        }
+      }
+    };
+
     socket.on('mid_market_update', handleMidMarket);
+    socket.on('chart_update', handleChart);
 
     return () => {
-      socket.off('chart_update', handleChart);
       socket.off('mid_market_update', handleMidMarket);
+      socket.off('chart_update', handleChart);
     };
   }, [socket, marketType]);
 
@@ -328,9 +321,11 @@ export function PolymarketStrikeChart({
     }
   }, [strikePrice]);
 
-  // Push Data into Lightweight Charts Series — INITIAL LOAD ONLY
+  // Seed Lightweight Charts Series with historical data — RUNS ONCE per market/timeframe load
   useEffect(() => {
     if (!lineSeriesRef.current || !candleSeriesRef.current) return;
+    // Skip if already initialized — live updates use series.update() directly
+    if (isInitializedRef.current) return;
 
     const activeCandles = propCandles.length > 0 ? propCandles : fetchedCandles;
 
@@ -354,8 +349,7 @@ export function PolymarketStrikeChart({
       if (chartRef.current) {
         chartRef.current.timeScale().fitContent();
       }
-    } else if (historyData.length > 0 && !isInitializedRef.current) {
-      // Only seed from historyData on first initialization
+    } else if (historyData.length > 0) {
       const sorted = [...historyData].sort((a, b) => a.time - b.time);
       const uniqueData: LineData<Time>[] = [];
       let lastTime = 0;
