@@ -218,4 +218,20 @@ export const adminApi = {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
   },
+
+  // ==========================================
+  // ADMIN MARKET CONFIGS (Global Strategy Settings)
+  // ==========================================
+
+  getMarketConfigs: async (): Promise<{ configs: any[] }> => {
+    return api.get(API_ENDPOINTS.ADMIN_MARKET_CONFIGS);
+  },
+
+  getMarketConfig: async (marketType: string): Promise<{ config: any }> => {
+    return api.get(`${API_ENDPOINTS.ADMIN_MARKET_CONFIGS}/${marketType}`);
+  },
+
+  updateMarketConfig: async (marketType: string, updates: any): Promise<{ message: string; config: any }> => {
+    return api.put(`${API_ENDPOINTS.ADMIN_MARKET_CONFIGS}/${marketType}`, updates);
+  },
 };

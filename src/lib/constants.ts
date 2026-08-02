@@ -79,6 +79,7 @@ export const API_ENDPOINTS = {
   ADMIN_INVITES_CREATE: '/api/admin/invites/create',
   ADMIN_PREDICTIONS: '/api/admin/predictions',
   ADMIN_PREDICTIONS_EXPORT: '/api/admin/predictions/export',
+  ADMIN_MARKET_CONFIGS: '/api/admin/market-configs',
 } as const;
 
 /**

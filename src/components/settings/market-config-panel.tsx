@@ -96,9 +96,10 @@ interface MarketConfigPanelProps {
   marketType: string;
   initialConfig?: MarketConfig | null;
   onSave?: (config: MarketConfig) => void;
+  isAdmin?: boolean;
 }
 
-export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketConfigPanelProps) {
+export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin = false }: MarketConfigPanelProps) {
   const [config, setConfig] = useState<MarketConfig>(
     { ...DEFAULT_CONFIG, ...initialConfig, market_type: marketType }
   );
@@ -258,8 +259,52 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
           </div>
         </div>
 
-        {/* ═══ ENTRY & RISK (the 3 things you actually tune) ═══ */}
-        <div className="space-y-4">
+        {/* ═══ USER CONTROLS (visible to all users) ═══ */}
+        {!isAdmin && (
+          <div className="space-y-4">
+            {/* Shares */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-text-primary">Shares per Trade</label>
+                <span className="text-sm font-mono font-semibold text-accent-primary">
+                  {config.num_shares}
+                </span>
+              </div>
+              <Slider
+                min={1}
+                max={200}
+                step={1}
+                value={config.num_shares}
+                onChange={(v) => update('num_shares', v)}
+                formatValue={(v) => `${v}`}
+              />
+            </div>
+
+            {/* Max Concurrent */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-text-primary">Max Concurrent Positions</label>
+                <span className="text-sm font-mono font-semibold text-accent-primary">
+                  {config.max_concurrent}
+                </span>
+              </div>
+              <Slider
+                min={1}
+                max={10}
+                step={1}
+                value={config.max_concurrent}
+                onChange={(v) => update('max_concurrent', v)}
+                formatValue={(v) => `${v}`}
+              />
+              <p className="text-xs text-text-tertiary">
+                Maximum open positions for this market at the same time
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ ENTRY & RISK (admin only) ═══ */}
+        {isAdmin && (<div className="space-y-4">
           {/* Signal Price */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -353,9 +398,10 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
               </p>
             </div>
           )}
-        </div>
+        </div>)}
 
-        {/* ═══ ADVANCED (collapsed by default) ═══ */}
+        {/* ═══ ADVANCED (collapsed by default, admin only) ═══ */}
+        {isAdmin && (
         <div className="border-t border-border-primary pt-4">
           <button
             type="button"
@@ -699,6 +745,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave }: MarketC
             </div>
           )}
         </div>
+        )}
       </CardBody>
 
       {hasChanges && (

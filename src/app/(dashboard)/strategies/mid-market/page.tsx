@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, memo } from 'react';
 import { useSocket } from '@/context/socket-context';
+import { useAuth } from '@/context/auth-context';
 import { settingsApi, executionApi } from '@/lib/api';
 import { MidMarketMonitor } from '@/components/dashboard/mid-market-monitor';
 import { MarketConfigPanel } from '@/components/settings/market-config-panel';
@@ -37,6 +38,7 @@ interface MarketStats {
 
 export default function MidMarketPage() {
   const { socket } = useSocket();
+  const { user } = useAuth();
   const [strategy, setStrategy] = useState<StrategySelection | null>(null);
   const [marketConfigs, setMarketConfigs] = useState<MarketConfig[]>([]);
   const [selectedMarket, setSelectedMarket] = useState<string>('btc-5m');
@@ -283,6 +285,7 @@ export default function MidMarketPage() {
       {showConfig && (
         <MarketConfigPanel
           marketType={selectedMarket}
+          isAdmin={user?.isAdmin}
           initialConfig={marketConfigs.find((c) => c.market_type === selectedMarket) || null}
           onSave={(updatedConfig) => {
             setMarketConfigs((prev) => {
