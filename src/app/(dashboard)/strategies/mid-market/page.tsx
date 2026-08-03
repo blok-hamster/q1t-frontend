@@ -129,7 +129,12 @@ export default function MidMarketStrategyPage() {
   const userSelectedMarkets = (strategy?.mid_market_markets || []).filter(
     (m) => adminApprovedMarkets.length === 0 || adminApprovedMarkets.includes(m)
   );
-  const enabledMarkets = userSelectedMarkets.length > 0 ? userSelectedMarkets : (adminApprovedMarkets.length > 0 ? adminApprovedMarkets : ['btc-5m']);
+
+  // For Admins: Show ALL supported markets so admin can click & configure any market parameters easily.
+  // For Regular Users: Show user's selected markets (or all admin-approved markets if user hasn't customized).
+  const enabledMarkets = user?.isAdmin
+    ? Object.keys(MARKET_LABELS)
+    : (userSelectedMarkets.length > 0 ? userSelectedMarkets : (adminApprovedMarkets.length > 0 ? adminApprovedMarkets : ['btc-5m']));
   const isStrategyActive = strategy?.active_strategies?.includes('mid_market') ?? false;
 
   return (
@@ -137,26 +142,34 @@ export default function MidMarketStrategyPage() {
       {/* Top Market Selector & Horizontal Scroll Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F1215] p-2.5 border border-[#1B2026]">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none max-w-full py-0.5">
-          {enabledMarkets.map((mt) => (
-            <button
-              key={mt}
-              onClick={() => {
-                setSelectedMarket(mt);
-                router.replace(`${pathname}?market=${mt}`, { scroll: false });
-              }}
-              className={cn(
-                'px-3 py-1.5 font-mono text-xs font-bold uppercase transition-all rounded-xs flex items-center gap-1.5 shrink-0 cursor-pointer',
-                selectedMarket === mt
-                  ? 'bg-[#16191E] text-[#20B2AA] border border-[#20B2AA]/40 shadow-sm'
-                  : 'bg-[#080A0C] text-[#8B949E] border border-[#1B2026] hover:text-[#E1E4E8] hover:border-[#2A313A]'
-              )}
-            >
-              <span>{MARKET_LABELS[mt]?.label || mt}</span>
-              {hasActivity[mt] && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[#20B2AA] animate-pulse" />
-              )}
-            </button>
-          ))}
+          {enabledMarkets.map((mt) => {
+            const isApproved = adminApprovedMarkets.includes(mt);
+            return (
+              <button
+                key={mt}
+                onClick={() => {
+                  setSelectedMarket(mt);
+                  router.replace(`${pathname}?market=${mt}`, { scroll: false });
+                }}
+                className={cn(
+                  'px-3 py-1.5 font-mono text-xs font-bold uppercase transition-all rounded-xs flex items-center gap-1.5 shrink-0 cursor-pointer',
+                  selectedMarket === mt
+                    ? 'bg-[#16191E] text-[#20B2AA] border border-[#20B2AA]/40 shadow-sm'
+                    : 'bg-[#080A0C] text-[#8B949E] border border-[#1B2026] hover:text-[#E1E4E8] hover:border-[#2A313A]'
+                )}
+              >
+                <span>{MARKET_LABELS[mt]?.label || mt}</span>
+                {user?.isAdmin && !isApproved && (
+                  <span className="text-[9px] px-1 py-0.2 bg-[#E55353]/15 text-[#E55353] border border-[#E55353]/30 rounded-xs">
+                    OFF
+                  </span>
+                )}
+                {hasActivity[mt] && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#20B2AA] animate-pulse" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Global Strategy Engine Status */}

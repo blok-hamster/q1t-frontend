@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import Link from 'next/link';
 import { useSocket } from '@/context/socket-context';
+import { useAuth } from '@/context/auth-context';
 import { executionApi, settingsApi } from '@/lib/api';
 import { TrendingUp, TrendingDown, Radio, Clock, Activity, ArrowUpRight, Flame } from 'lucide-react';
 import type { MidMarketState } from '@/types/websocket';
@@ -81,6 +82,7 @@ interface StrategyAgg {
 
 export const ActivePositionsTable = memo(function ActivePositionsTable() {
   const { socket } = useSocket();
+  const { user } = useAuth();
   const [markets, setMarkets] = useState<Record<string, MarketState>>(() => {
     const init: Record<string, MarketState> = {};
     ALL_MARKETS.forEach(m => { init[m.id] = emptyState(); });
@@ -88,6 +90,7 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
   });
   const [midStats, setMidStats] = useState<StrategyAgg>({ trades: 0, wins: 0, losses: 0, pnl: 0 });
   const [enabledMarkets, setEnabledMarkets] = useState<string[]>(['btc-5m']);
+  const [adminApprovedMarkets, setAdminApprovedMarkets] = useState<string[]>([]);
   const [activeStrategies, setActiveStrategies] = useState<string[]>([]);
 
   const marketsRef = useRef(markets);
@@ -98,11 +101,17 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [midData, tradesData, strategyData] = await Promise.all([
+        const [midData, tradesData, strategyData, marketConfigData] = await Promise.all([
           executionApi.getMidMarketStats(),
           executionApi.getTrades(),
           settingsApi.getStrategySelection(),
+          settingsApi.getMarketConfigs(),
         ]);
+
+        const approved = (marketConfigData.marketConfigs || [])
+          .filter((c: any) => c.enabled !== false)
+          .map((c: any) => c.market_type);
+        setAdminApprovedMarkets(approved);
 
         const enabledStrats = strategyData.strategySelection?.active_strategies ?? [];
         const enabledMkts = strategyData.strategySelection?.mid_market_markets ?? ['btc-5m'];
@@ -243,10 +252,15 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
     };
   }, [socket]);
 
-  // Filter ONLY user-enabled markets OR markets that currently have an open position!
-  const visibleMarkets = ALL_MARKETS.filter(m => {
+  // Filter markets: For Admins, show all admin-approved platform markets. For regular users, show user-selected markets (or open positions).
+  const visibleMarkets = ALL_MARKETS.filter((m) => {
     const hasOpenPos = markets[m.id]?.position != null;
-    const isEnabled = enabledMarkets.includes(m.id);
+    const isApprovedByAdmin = adminApprovedMarkets.length === 0 || adminApprovedMarkets.includes(m.id);
+    const isUserEnabled = enabledMarkets.includes(m.id) && isApprovedByAdmin;
+    const isEnabled = user?.isAdmin
+      ? (adminApprovedMarkets.length > 0 ? isApprovedByAdmin : true)
+      : (enabledMarkets.length > 0 ? isUserEnabled : isApprovedByAdmin);
+
     return isEnabled || hasOpenPos;
   });
 

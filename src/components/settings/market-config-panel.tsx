@@ -558,6 +558,63 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
                     Consecutive ticks below stop before triggering — higher = more whipsaw tolerance
                   </p>
                 </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Hard Floor (cents)</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      ${(config.stop_loss_hard_floor_cents ?? 0.04).toFixed(2)}
+                    </span>
+                  </div>
+                  <Slider
+                    min={1}
+                    max={15}
+                    step={1}
+                    value={(config.stop_loss_hard_floor_cents ?? 0.04) * 100}
+                    onChange={(v) => update('stop_loss_hard_floor_cents', v / 100)}
+                    formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Instant stop if price drops this far below stop in one tick
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Time Exit (seconds left)</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      {config.time_exit_seconds ?? 60}s
+                    </span>
+                  </div>
+                  <Slider
+                    min={15}
+                    max={120}
+                    step={5}
+                    value={config.time_exit_seconds ?? 60}
+                    onChange={(v) => update('time_exit_seconds', v)}
+                    formatValue={(v) => `${v}s`}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Time Exit Threshold</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      ${(config.time_exit_threshold ?? 0.80).toFixed(2)}
+                    </span>
+                  </div>
+                  <Slider
+                    min={50}
+                    max={95}
+                    step={1}
+                    value={(config.time_exit_threshold ?? 0.80) * 100}
+                    onChange={(v) => update('time_exit_threshold', v / 100)}
+                    formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Close position if below this price with less than time exit seconds remaining
+                  </p>
+                </div>
               </div>
 
               {/* Entry Filters */}

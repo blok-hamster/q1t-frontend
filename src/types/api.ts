@@ -154,6 +154,9 @@ export interface MarketConfig {
   scalp_min_sl_delta?: number;
   scalp_min_rr?: number;
   blocked_hours_utc?: number[];
+  stop_loss_hard_floor_cents?: number;
+  time_exit_seconds?: number;
+  time_exit_threshold?: number;
 }
 
 export interface AiV2Config {
