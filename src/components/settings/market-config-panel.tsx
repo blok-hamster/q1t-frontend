@@ -83,6 +83,7 @@ const DEFAULT_CONFIG: MarketConfig = {
   retrace_entry_enabled: false,
   limit_entry_price: 0.70,
   fok_buffer_cents: 0.03,
+  blocked_hours_utc: [],
 };
 
 function getTimeframeDefaults(marketType: string): Partial<MarketConfig> {
@@ -124,7 +125,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
     }
   }, [marketType, initialConfig]);
 
-  const update = (key: keyof MarketConfig, value: number | boolean) => {
+  const update = (key: keyof MarketConfig, value: number | boolean | number[]) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
@@ -305,6 +306,45 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
 
         {/* ═══ ENTRY & RISK (admin only) ═══ */}
         {isAdmin && (<div className="space-y-4">
+          {/* Time Gate */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">Time Gate (UTC)</label>
+            <div className="grid grid-cols-12 gap-1">
+              {Array.from({ length: 24 }, (_, h) => {
+                const blocked = config.blocked_hours_utc || [];
+                const isBlocked = blocked.includes(h);
+                return (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => {
+                      const current = [...(blocked as number[])];
+                      const updated = isBlocked
+                        ? current.filter((x: number) => x !== h)
+                        : [...current, h].sort((a, b) => a - b);
+                      update('blocked_hours_utc', updated);
+                    }}
+                    className={`px-0 py-1.5 text-[10px] font-mono rounded transition-colors ${
+                      isBlocked
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                        : 'bg-bg-tertiary text-text-tertiary border border-border-primary hover:border-border-secondary'
+                    }`}
+                  >
+                    {String(h).padStart(2, '0')}
+                  </button>
+                );
+              })}
+            </div>
+            {(config.blocked_hours_utc || []).length > 0 && (
+              <p className="text-xs font-mono text-red-400">
+                Blocked: {(config.blocked_hours_utc || []).map(h => `${String(h).padStart(2, '0')}:00`).join(', ')} UTC
+              </p>
+            )}
+            <p className="text-xs text-text-tertiary">
+              No new entries during red hours
+            </p>
+          </div>
+
           {/* Signal Price */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -704,6 +744,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
                     />
                   </div>
                 </div>
+
               </div>
 
               {/* Watch Window */}

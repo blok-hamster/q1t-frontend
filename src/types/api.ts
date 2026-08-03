@@ -153,6 +153,7 @@ export interface MarketConfig {
   scalp_sl_pct?: number;
   scalp_min_sl_delta?: number;
   scalp_min_rr?: number;
+  blocked_hours_utc?: number[];
 }
 
 export interface AiV2Config {
