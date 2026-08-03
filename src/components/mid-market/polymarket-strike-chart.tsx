@@ -56,27 +56,50 @@ export function PolymarketStrikeChart({
   const [historyData, setHistoryData] = useState<{ time: number; value: number }[]>([]);
   const [fetchedCandles, setFetchedCandles] = useState<Candle[]>([]);
 
+  const [liveStrikePrice, setLiveStrikePrice] = useState<number | null>(null);
+  const [liveUpPrice, setLiveUpPrice] = useState<number | null>(null);
+  const [liveDownPrice, setLiveDownPrice] = useState<number | null>(null);
+  const [livePriceDistance, setLivePriceDistance] = useState<number | null>(null);
+
   const asset = marketType.split('-')[0].toUpperCase();
   const symbol = `${asset}USDT`;
   const defaultPriceForAsset =
     asset === 'ETH' ? 3200 : asset === 'SOL' ? 185 : asset === 'DOGE' ? 0.12 : 69420;
 
-  // Reset state whenever marketType or asset changes so old prices/trajectories never bleed over
+  const marketTimeframe = (marketType.split('-')[1] as '5m' | '15m') || '5m';
+
+  // Reset state and clear chart series whenever marketType changes
   useEffect(() => {
     setCurrentPrice(null);
     setHistoryData([]);
     setFetchedCandles([]);
+    setLiveStrikePrice(null);
+    setLiveUpPrice(null);
+    setLiveDownPrice(null);
+    setLivePriceDistance(null);
+    setTimeframe(marketTimeframe);
     isInitializedRef.current = false;
-  }, [marketType]);
 
-  // Sync propCurrentPrice when valid and matching current asset
+    if (lineSeriesRef.current) {
+      try { lineSeriesRef.current.setData([]); } catch (e) {}
+    }
+    if (candleSeriesRef.current) {
+      try { candleSeriesRef.current.setData([]); } catch (e) {}
+    }
+    if (priceLineRef.current && lineSeriesRef.current) {
+      try { lineSeriesRef.current.removePriceLine(priceLineRef.current); } catch (e) {}
+      priceLineRef.current = null;
+    }
+  }, [marketType, marketTimeframe]);
+
+  // Sync propCurrentPrice ONLY when currentPrice is null (prevents parent state from stomping on live socket ticks)
   useEffect(() => {
-    if (propCurrentPrice != null && propCurrentPrice > 0) {
+    if (propCurrentPrice != null && propCurrentPrice > 0 && currentPrice === null) {
       // Basic sanity check: reject BTC price (>30k) when asset is ETH/SOL/DOGE
       if (asset !== 'BTC' && propCurrentPrice > 25000) return;
       setCurrentPrice(propCurrentPrice);
     }
-  }, [propCurrentPrice, asset]);
+  }, [propCurrentPrice, asset, currentPrice]);
 
   // Fetch real Binance historical OHLCV candles for the target asset (BTCUSDT, ETHUSDT, SOLUSDT, DOGEUSDT)
   useEffect(() => {
@@ -84,8 +107,9 @@ export function PolymarketStrikeChart({
 
     const fetchBinanceKlines = async () => {
       try {
+        const activeInterval = timeframe || marketTimeframe;
         const res = await fetch(
-          `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=60`
+          `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${activeInterval}&limit=60`
         );
         if (!res.ok) throw new Error('Failed to fetch binance klines');
         const klines = await res.json();
@@ -114,21 +138,45 @@ export function PolymarketStrikeChart({
         if (latestPrice && latestPrice > 0) {
           setCurrentPrice(latestPrice);
         }
+
+        // Directly populate Lightweight Charts series and reset price scale autoScale for immediate graph rendering
+        if (lineSeriesRef.current && candleSeriesRef.current) {
+          const formattedCandles: CandlestickData<Time>[] = parsedCandles.map((c) => ({
+            time: (new Date(c.timestamp).getTime() / 1000) as Time,
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          }));
+          candleSeriesRef.current.setData(formattedCandles);
+
+          const lineData: LineData<Time>[] = parsedCandles.map((c) => ({
+            time: (new Date(c.timestamp).getTime() / 1000) as Time,
+            value: c.close,
+          }));
+          lineSeriesRef.current.setData(lineData);
+          isInitializedRef.current = true;
+
+          if (chartRef.current) {
+            chartRef.current.priceScale('right').applyOptions({ autoScale: true });
+            chartRef.current.timeScale().fitContent();
+          }
+        }
       } catch (err) {
         if (isCancelled) return;
         // Fallback: seed synthetic curve for the specific asset if API fetch is unavailable
-        const basePrice = strikePrice || defaultPriceForAsset;
+        const effectiveStrike = strikePrice || liveStrikePrice || defaultPriceForAsset;
         const nowSec = Math.floor(Date.now() / 1000);
         const initialPoints: { time: number; value: number }[] = [];
         for (let i = 40; i >= 0; i--) {
           const time = nowSec - i * 30;
           const variation =
-            (Math.sin(i * 0.4) * 0.0015 + (Math.random() - 0.5) * 0.0008) * basePrice;
-          const value = Math.round((basePrice + variation) * 100) / 100;
+            (Math.sin(i * 0.4) * 0.0015 + (Math.random() - 0.5) * 0.0008) * effectiveStrike;
+          const value = Math.round((effectiveStrike + variation) * 100) / 100;
           initialPoints.push({ time, value });
         }
         setHistoryData(initialPoints);
-        setCurrentPrice(basePrice);
+        setCurrentPrice(effectiveStrike);
       }
     };
 
@@ -137,7 +185,7 @@ export function PolymarketStrikeChart({
     return () => {
       isCancelled = true;
     };
-  }, [marketType, symbol, timeframe, strikePrice, defaultPriceForAsset]);
+  }, [marketType, symbol, timeframe, marketTimeframe, strikePrice, liveStrikePrice, defaultPriceForAsset]);
 
   // Listen to Socket feeds and strictly filter for current marketType
   useEffect(() => {
@@ -160,44 +208,50 @@ export function PolymarketStrikeChart({
       }
     };
 
-    // Engine mid_market_update — PRIMARY source for all markets including BTC
+    // Engine mid_market_update — SOLE AUTHORITATIVE SOURCE for all markets (btc-5m, btc-15m, eth-5m, eth-15m, sol-5m, doge-5m)
     const handleMidMarket = (data: any) => {
       const mt = (data?.market_type || 'btc-5m').toLowerCase();
       if (mt !== marketType.toLowerCase()) return;
-      const price = data?.asset_price || (mt.startsWith('btc') ? data?.btc_price : null);
+
+      // Preserve valid positive strike price (never overwrite with null on window end ticks)
+      if (typeof data.strike_price === 'number' && data.strike_price > 0) {
+        setLiveStrikePrice(data.strike_price);
+      }
+      if (typeof data.up_price === 'number' && data.up_price >= 0) {
+        setLiveUpPrice(data.up_price);
+      }
+      if (typeof data.down_price === 'number' && data.down_price >= 0) {
+        setLiveDownPrice(data.down_price);
+      }
+      if (typeof data.price_distance === 'number') {
+        setLivePriceDistance(data.price_distance);
+      }
+
+      const price = typeof data?.asset_price === 'number' && data.asset_price > 0 ? data.asset_price : null;
       if (price && price > 0) {
         lastMidMarketTickRef.current = Date.now();
         appendLiveTick(price);
       }
     };
 
-    // BTC chart_update — FALLBACK only: skip if mid_market_update fired within last 3s
-    const handleChart = (candle: any) => {
-      if (!marketType.toLowerCase().startsWith('btc')) return;
-      if (candle?.close && candle.close > 0) {
-        const msSinceEngine = Date.now() - lastMidMarketTickRef.current;
-        if (msSinceEngine > 3000) {
-          // Engine hasn't ticked recently — use raw candle as fallback
-          appendLiveTick(candle.close);
-        }
-      }
-    };
-
     socket.on('mid_market_update', handleMidMarket);
-    socket.on('chart_update', handleChart);
 
     return () => {
       socket.off('mid_market_update', handleMidMarket);
-      socket.off('chart_update', handleChart);
     };
   }, [socket, marketType]);
 
-  const activePrice = currentPrice || propCurrentPrice || strikePrice || defaultPriceForAsset;
+  const effectiveStrikePrice = strikePrice ?? liveStrikePrice;
+  const effectiveUpPrice = upPrice ?? liveUpPrice;
+  const effectiveDownPrice = downPrice ?? liveDownPrice;
+  const effectivePriceDistance = priceDistance ?? livePriceDistance;
+
+  const activePrice = currentPrice || propCurrentPrice || effectiveStrikePrice || defaultPriceForAsset;
   const isAboveStrike =
-    strikePrice != null ? activePrice >= strikePrice : true;
+    effectiveStrikePrice != null ? activePrice >= effectiveStrikePrice : true;
   const lineColor = isAboveStrike ? '#20B2AA' : '#E55353';
 
-  // Initialize Lightweight Chart ONCE with responsive height
+  // Initialize Lightweight Chart ONCE with responsive height — DO NOT include lineColor in deps to avoid chart re-creation loop
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
@@ -239,9 +293,9 @@ export function PolymarketStrikeChart({
     });
 
     const areaSeries = chart.addAreaSeries({
-      lineColor,
-      topColor: `${lineColor}33`,
-      bottomColor: `${lineColor}00`,
+      lineColor: '#20B2AA',
+      topColor: '#20B2AA33',
+      bottomColor: '#20B2AA00',
       lineWidth: 2,
     });
 
@@ -276,7 +330,7 @@ export function PolymarketStrikeChart({
       lineSeriesRef.current = null;
       candleSeriesRef.current = null;
     };
-  }, [height, lineColor]);
+  }, [height]);
 
   // Update Series Visibility
   useEffect(() => {
@@ -316,17 +370,17 @@ export function PolymarketStrikeChart({
       priceLineRef.current = null;
     }
 
-    if (strikePrice && strikePrice > 0) {
+    if (effectiveStrikePrice && effectiveStrikePrice > 0) {
       priceLineRef.current = series.createPriceLine({
-        price: strikePrice,
+        price: effectiveStrikePrice,
         color: '#D99B00',
         lineWidth: 2,
         lineStyle: LineStyle.Dashed,
         axisLabelVisible: true,
-        title: `STRIKE ${formatCurrency(strikePrice)}`,
+        title: `STRIKE ${formatCurrency(effectiveStrikePrice)}`,
       });
     }
-  }, [strikePrice]);
+  }, [effectiveStrikePrice]);
 
   // Seed Lightweight Charts Series with historical data — RUNS ONCE per market/timeframe load
   useEffect(() => {
@@ -379,9 +433,9 @@ export function PolymarketStrikeChart({
 
   // Distance metrics calculation
   const delta =
-    strikePrice != null ? activePrice - strikePrice : priceDistance ?? 0;
+    effectiveStrikePrice != null ? activePrice - effectiveStrikePrice : effectivePriceDistance ?? 0;
   const deltaPct =
-    strikePrice && strikePrice > 0 ? (delta / strikePrice) * 100 : 0;
+    effectiveStrikePrice && effectiveStrikePrice > 0 ? (delta / effectiveStrikePrice) * 100 : 0;
 
   return (
     <div className={cn('bg-[#0F1215] border border-[#1B2026] select-none', className)}>
@@ -390,7 +444,7 @@ export function PolymarketStrikeChart({
         <div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#586069]">
-              LIVE {asset}-5M TRAJECTORY
+              LIVE {marketType.toUpperCase()} TRAJECTORY
             </span>
             <span className="inline-flex items-center gap-1 font-mono text-[9px] uppercase px-1.5 py-0.5 rounded-xs bg-[#20B2AA]/10 text-[#20B2AA] border border-[#20B2AA]/20">
               <Radio className="h-2.5 w-2.5 animate-pulse" /> POLYMARKET FEED
@@ -400,7 +454,7 @@ export function PolymarketStrikeChart({
             <span className="font-mono text-xl font-bold text-[#E1E4E8] tabular-nums">
               {activePrice ? formatCurrency(activePrice) : '—'}
             </span>
-            {strikePrice != null && (
+            {effectiveStrikePrice != null && (
               <span
                 className={cn(
                   'font-mono text-xs font-bold tabular-nums px-2 py-0.5 border rounded-xs',
@@ -423,12 +477,12 @@ export function PolymarketStrikeChart({
         {/* Binary Probabilities & View Controls */}
         <div className="flex items-center gap-3">
           {/* YES / NO share prices */}
-          {upPrice != null && downPrice != null && (
+          {effectiveUpPrice != null && effectiveDownPrice != null && (
             <div className="flex items-center gap-1.5 font-mono text-xs bg-[#080A0C] px-2.5 py-1 border border-[#1B2026]">
               <span className="text-[#586069] text-[10px] font-bold">SHARES:</span>
-              <span className="text-[#20B2AA] font-bold">YES ${(upPrice).toFixed(2)}</span>
+              <span className="text-[#20B2AA] font-bold">YES ${(effectiveUpPrice).toFixed(2)}</span>
               <span className="text-[#586069]">/</span>
-              <span className="text-[#E55353] font-bold">NO ${(downPrice).toFixed(2)}</span>
+              <span className="text-[#E55353] font-bold">NO ${(effectiveDownPrice).toFixed(2)}</span>
             </div>
           )}
 
@@ -479,15 +533,15 @@ export function PolymarketStrikeChart({
       </div>
 
       {/* Chart Canvas Area */}
-      <div className="relative p-2 min-h-[400px]">
-        <div ref={chartContainerRef} className="w-full min-h-[400px]" />
+      <div className="relative p-2 min-h-[280px] sm:min-h-[400px]">
+        <div ref={chartContainerRef} className="w-full min-h-[280px] sm:min-h-[400px]" />
 
         {/* Floating Strike Info Overlay */}
-        {strikePrice != null && (
+        {effectiveStrikePrice != null && (
           <div className="absolute top-4 left-4 bg-[#080A0C]/90 backdrop-blur-md border border-[#1B2026] px-3 py-1.5 font-mono text-xs flex items-center gap-3 z-10">
             <span className="text-[10px] text-[#586069] font-bold uppercase">WINDOW STRIKE:</span>
             <span className="text-[#D99B00] font-bold tabular-nums">
-              {formatCurrency(strikePrice)}
+              {formatCurrency(effectiveStrikePrice)}
             </span>
           </div>
         )}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { settingsApi } from '@/lib/api';
+import { useSocket } from '@/context/socket-context';
 import { PolymarketStrikeChart } from '@/components/mid-market/polymarket-strike-chart';
 import { MobileChartWrapper } from '@/components/mid-market/mobile-chart-wrapper';
 import { MidMarketForecastBars } from '@/components/mid-market/mid-market-forecast-bars';
@@ -32,6 +33,7 @@ export default function MidMarketStrategyPage() {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
+  const { socket } = useSocket();
 
   const [loading, setLoading] = useState(true);
   const [strategy, setStrategy] = useState<StrategySelection | null>(null);
@@ -59,6 +61,36 @@ export default function MidMarketStrategyPage() {
       setSelectedMarket(marketParam);
     }
   }, [searchParams]);
+
+  // Reset stats on market selection change
+  useEffect(() => {
+    setStats(null);
+  }, [selectedMarket]);
+
+  // Subscribe to live socket metrics for selectedMarket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleUpdate = (data: any) => {
+      const mt = (data?.market_type || 'btc-5m').toLowerCase();
+      if (mt !== selectedMarket.toLowerCase()) return;
+
+      const validPrice = typeof data?.asset_price === 'number' && data.asset_price > 0 ? data.asset_price : null;
+
+      setStats((prev) => ({
+        strike_price: typeof data.strike_price === 'number' && data.strike_price > 0 ? data.strike_price : (prev?.strike_price ?? null),
+        btc_price: validPrice ?? (prev?.btc_price ?? null),
+        price_distance: typeof data.price_distance === 'number' ? data.price_distance : (prev?.price_distance ?? null),
+        up_price: typeof data.up_price === 'number' ? data.up_price : (prev?.up_price ?? null),
+        down_price: typeof data.down_price === 'number' ? data.down_price : (prev?.down_price ?? null),
+      }));
+    };
+
+    socket.on('mid_market_update', handleUpdate);
+    return () => {
+      socket.off('mid_market_update', handleUpdate);
+    };
+  }, [socket, selectedMarket]);
 
   useEffect(() => {
     const loadSettings = async () => {

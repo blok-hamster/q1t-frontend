@@ -8,11 +8,11 @@ export function formatCurrency(
     maximumFractionDigits?: number;
   }
 ): string {
-  // Ensure valid values and maximumFractionDigits >= minimumFractionDigits
-  const minDigits = Math.max(0, Math.min(20, options?.minimumFractionDigits ?? 2));
+  const isSubDollar = Math.abs(value) > 0 && Math.abs(value) < 1;
+  const minDigits = Math.max(0, Math.min(20, options?.minimumFractionDigits ?? (isSubDollar ? 4 : 2)));
   const maxDigits = Math.max(
     minDigits,
-    Math.min(20, options?.maximumFractionDigits ?? 2)
+    Math.min(20, options?.maximumFractionDigits ?? (isSubDollar ? 4 : 2))
   );
 
   return new Intl.NumberFormat('en-US', {
