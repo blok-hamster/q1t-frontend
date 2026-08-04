@@ -6,6 +6,7 @@ import { portfolioApi, dashboardApi, executionApi } from '@/lib/api';
 import { BalanceCard } from '@/components/portfolio/balance-card';
 import { DepositAddress } from '@/components/portfolio/deposit-address';
 import { PortfolioPnlChart } from '@/components/portfolio/portfolio-pnl-chart';
+import { CalendarPnl } from '@/components/portfolio/calendar-pnl';
 import { TransactionHistory } from '@/components/portfolio/transaction-history';
 import { MobilePortfolioView } from '@/components/portfolio/mobile-portfolio-view';
 import type { Transaction } from '@/components/portfolio/transaction-history';
@@ -13,7 +14,39 @@ import { Loading } from '@/components/ui/loading';
 import { toast } from '@/context/toast-context';
 import type { Balance } from '@/types/api';
 import type { Trade } from '@/types/trade';
-import { Wallet, DollarSign, ShieldCheck, ExternalLink, Zap } from 'lucide-react';
+import { Wallet, DollarSign, ShieldCheck, ExternalLink, Zap, ChevronDown, ChevronRight, Activity } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
+
+function CollapsiblePnlChart({ trades, allTimePnL }: { trades: Trade[]; allTimePnL: number }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="bg-[#0F1215] border border-[#1B2026]">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full p-3.5 flex items-center justify-between cursor-pointer hover:bg-[#16191E]/30 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          {open ? (
+            <ChevronDown className="h-3.5 w-3.5 text-[#20B2AA]" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-[#20B2AA]" />
+          )}
+          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#586069]">
+            CUMULATIVE P&L CHART
+          </span>
+          <span className="inline-flex items-center gap-1 text-[9px] uppercase px-1.5 py-0.5 rounded-xs bg-[#20B2AA]/10 text-[#20B2AA] border border-[#20B2AA]/20">
+            <Activity className="h-2.5 w-2.5" /> LIVE
+          </span>
+        </div>
+        <span className="text-[10px] text-[#8B949E]">
+          {open ? 'COLLAPSE' : 'EXPAND'}
+        </span>
+      </button>
+      {open && <PortfolioPnlChart trades={trades} allTimePnL={allTimePnL} />}
+    </div>
+  );
+}
 
 export default function PortfolioPage() {
   const { user } = useAuth();
@@ -29,26 +62,38 @@ export default function PortfolioPage() {
     const fetchData = async () => {
       try {
         const [balanceData, addressData, portfolioSummary] = await Promise.all([
-          portfolioApi.getBalances(),
-          portfolioApi.getDepositAddress(),
+          portfolioApi.getBalances().catch(() => null),
+          portfolioApi.getDepositAddress().catch(() => null),
           dashboardApi.getPortfolioSummary().catch(() => null),
         ]);
 
-        setBalances(balanceData);
-        setDepositAddress(addressData.address);
-        if (addressData.wallet_type) {
-          setWalletType(addressData.wallet_type);
+        if (balanceData) setBalances(balanceData);
+        if (addressData?.address) {
+          setDepositAddress(addressData.address);
+          if (addressData.wallet_type) {
+            setWalletType(addressData.wallet_type);
+          }
         }
         if (portfolioSummary?.allTimePnL !== undefined) {
           setAllTimePnL(portfolioSummary.allTimePnL);
         }
 
-        // Fetch trade history for PnL trajectory chart & transaction ledger
+        // Fetch all trade history (paginated) for PnL chart & calendar
         try {
-          const tradeLedger = await executionApi.getTrades({ limit: 100 });
-          if (tradeLedger?.trades) {
-            setTrades(tradeLedger.trades);
+          const allTrades: Trade[] = [];
+          let cursor: string | undefined;
+          let hasMore = true;
+          while (hasMore) {
+            const page = await executionApi.getTrades({ limit: 500, cursor });
+            if (page?.trades?.length) {
+              allTrades.push(...page.trades);
+              hasMore = !!page.hasMore;
+              cursor = page.nextCursor || undefined;
+            } else {
+              hasMore = false;
+            }
           }
+          setTrades(allTrades);
         } catch (tradeErr) {
           console.warn('Could not load trade ledger for PnL chart:', tradeErr);
         }
@@ -161,8 +206,11 @@ export default function PortfolioPage() {
           </div>
         </div>
 
-        {/* Real-time PnL Trajectory Chart */}
-        <PortfolioPnlChart trades={trades} allTimePnL={allTimePnL} />
+        {/* Daily PnL Calendar */}
+        <CalendarPnl trades={trades} />
+
+        {/* Collapsible PnL Trajectory Chart */}
+        <CollapsiblePnlChart trades={trades} allTimePnL={allTimePnL} />
 
         {/* Deposit Address Component */}
         {depositAddress && (

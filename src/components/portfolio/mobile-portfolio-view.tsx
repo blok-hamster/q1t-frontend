@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { BalanceCard } from './balance-card';
 import { DepositAddress } from './deposit-address';
 import { PortfolioPnlChart } from './portfolio-pnl-chart';
+import { CalendarPnl } from './calendar-pnl';
 import { TransactionHistory } from './transaction-history';
 import { MobileBottomSheet } from '@/components/ui/mobile-bottom-sheet';
 import { formatCurrency, formatNumber } from '@/lib/utils/format';
@@ -19,6 +20,9 @@ import {
   ArrowDownCircle,
   TrendingUp,
   QrCode,
+  ChevronDown,
+  ChevronRight,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
@@ -30,6 +34,37 @@ export interface MobilePortfolioViewProps {
   trades: Trade[];
   allTimePnL: number;
   loading: boolean;
+}
+
+function MobileCollapsibleChart({ trades, allTimePnL }: { trades: Trade[]; allTimePnL: number }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="bg-[#0F1215] border border-[#1B2026] rounded-xs overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full p-3 flex items-center justify-between cursor-pointer hover:bg-[#16191E]/30 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          {open ? (
+            <ChevronDown className="h-3.5 w-3.5 text-[#20B2AA]" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-[#20B2AA]" />
+          )}
+          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#586069]">
+            CUMULATIVE P&L CHART
+          </span>
+          <span className="inline-flex items-center gap-1 text-[9px] uppercase px-1.5 py-0.5 rounded-xs bg-[#20B2AA]/10 text-[#20B2AA] border border-[#20B2AA]/20">
+            <Activity className="h-2.5 w-2.5" /> LIVE
+          </span>
+        </div>
+        <span className="text-[10px] text-[#8B949E]">
+          {open ? 'COLLAPSE' : 'EXPAND'}
+        </span>
+      </button>
+      {open && <PortfolioPnlChart trades={trades} allTimePnL={allTimePnL} height={250} />}
+    </div>
+  );
 }
 
 export function MobilePortfolioView({
@@ -131,10 +166,11 @@ export function MobilePortfolioView({
         </div>
       </div>
 
-      {/* PnL Performance Chart */}
-      <div className="rounded-xs overflow-hidden border border-[#1B2026]">
-        <PortfolioPnlChart trades={trades} allTimePnL={allTimePnL} height={250} />
-      </div>
+      {/* Daily PnL Calendar */}
+      <CalendarPnl trades={trades} />
+
+      {/* Collapsible PnL Chart */}
+      <MobileCollapsibleChart trades={trades} allTimePnL={allTimePnL} />
 
       {/* Transaction Ledger */}
       <TransactionHistory transactions={transactions} loading={loading} />
