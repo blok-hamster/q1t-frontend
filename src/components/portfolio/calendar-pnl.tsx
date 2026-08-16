@@ -41,10 +41,8 @@ export function CalendarPnl({ trades, className }: CalendarPnlProps) {
           t.pnl !== null
       )
       .forEach((trade) => {
-        const dateKey = format(
-          new Date(trade.resolved_at || trade.createdAt),
-          'yyyy-MM-dd'
-        );
+        const d = new Date(trade.resolved_at || trade.createdAt);
+        const dateKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
         const existing = map.get(dateKey) || { pnl: 0, wins: 0, losses: 0 };
         existing.pnl += trade.pnl!;
         if (trade.pnl! > 0) existing.wins++;

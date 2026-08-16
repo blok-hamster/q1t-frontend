@@ -568,7 +568,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
                   </div>
                   <Slider
                     min={1}
-                    max={15}
+                    max={50}
                     step={1}
                     value={(config.stop_loss_hard_floor_cents ?? 0.04) * 100}
                     onChange={(v) => update('stop_loss_hard_floor_cents', v / 100)}
