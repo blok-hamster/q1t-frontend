@@ -26,6 +26,12 @@ const STRATEGIES = [
     description: 'Trajectory slope consensus & momentum entry during 5-minute active windows',
     icon: TrendingUp,
   },
+  {
+    value: 'scalp',
+    label: 'Scalp Strategy',
+    description: 'Mean-reversion: buy cheap trailing side early, exit on TP/SL before resolution',
+    icon: ShieldCheck,
+  },
 ];
 
 interface Props {
@@ -48,8 +54,8 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
   }, [initialStrategy, marketConfigs]);
 
   const activeStrategies = strategy.active_strategies || [];
-  const showMidMarketMarkets =
-    activeStrategies.includes('mid_market') || activeStrategies.includes('scalp');
+  const showMidMarketMarkets = isAdmin &&
+    (activeStrategies.includes('mid_market') || activeStrategies.includes('scalp'));
 
   const handleStrategyToggle = async (value: string) => {
     const current = strategy.active_strategies || [];
@@ -98,8 +104,8 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
     }
   };
 
-  // Admin toggle to globally enable/disable a market platform-wide
-  const handleAdminGlobalMarketToggle = async (marketId: string, currentEnabled: boolean) => {
+  // Admin toggle to globally enable/disable a market for mid-market strategy
+  const handleAdminMidMarketToggle = async (marketId: string, currentEnabled: boolean) => {
     setSaving(true);
     try {
       await settingsApi.updateMarketConfig(marketId, { enabled: !currentEnabled });
@@ -108,11 +114,31 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
       );
       toast.success(
         !currentEnabled
-          ? `Global Trading ENABLED for ${marketId.toUpperCase()}`
-          : `Global Trading DISABLED for ${marketId.toUpperCase()}`
+          ? `Mid-Market ENABLED for ${marketId.toUpperCase()}`
+          : `Mid-Market DISABLED for ${marketId.toUpperCase()}`
       );
     } catch (error) {
-      toast.error('Failed to update global market availability');
+      toast.error('Failed to update mid-market availability');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Admin toggle to globally enable/disable a market for scalp strategy
+  const handleAdminScalpToggle = async (marketId: string, currentScalpEnabled: boolean) => {
+    setSaving(true);
+    try {
+      await settingsApi.updateMarketConfig(marketId, { scalp_enabled: !currentScalpEnabled });
+      setConfigs((prev) =>
+        prev.map((c) => (c.market_type === marketId ? { ...c, scalp_enabled: !currentScalpEnabled } : c))
+      );
+      toast.success(
+        !currentScalpEnabled
+          ? `Scalp ENABLED for ${marketId.toUpperCase()}`
+          : `Scalp DISABLED for ${marketId.toUpperCase()}`
+      );
+    } catch (error) {
+      toast.error('Failed to update scalp availability');
     } finally {
       setSaving(false);
     }
@@ -195,12 +221,12 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold text-[#586069] uppercase tracking-[0.12em] block">
-                  {isAdmin ? 'ADMIN GLOBAL MARKET APPROVAL' : 'AVAILABLE TRADING MARKETS'}
+                  {isAdmin ? 'ADMIN PER-STRATEGY MARKET CONTROL' : 'MID-MARKET TRADING MARKETS'}
                 </span>
                 <p className="text-xs text-[#8B949E] mt-0.5">
                   {isAdmin
-                    ? 'Select which markets are globally approved for trading across the platform.'
-                    : 'Activate or deactivate approved markets for your automated strategy.'}
+                    ? 'Enable or disable each market independently per strategy (Mid-Market / Scalp).'
+                    : 'Select which markets the mid-market strategy trades. Scalp markets are controlled by admin.'}
                 </p>
               </div>
             </div>
@@ -208,52 +234,55 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {SUPPORTED_MARKETS.map((m) => {
                 const config = configs.find((c) => c.market_type === m.id);
-                const isAdminApproved = config?.enabled ?? true;
+                const isMidMarketEnabled = config?.enabled ?? true;
+                const isScalpEnabled = config?.scalp_enabled ?? true;
                 const isUserActive = strategy.mid_market_markets?.includes(m.id) ?? false;
 
                 if (isAdmin) {
-                  // Admin View: Toggle platform-wide market approval
+                  // Admin View: Per-strategy toggles
                   return (
                     <div
                       key={m.id}
                       className={cn(
-                        'p-2.5 border rounded-xs bg-[#080A0C] flex flex-col justify-between gap-2',
-                        isAdminApproved ? 'border-[#20B2AA]/40' : 'border-[#1B2026] opacity-60'
+                        'p-2.5 border rounded-xs bg-[#080A0C] flex flex-col gap-2',
+                        isMidMarketEnabled || isScalpEnabled ? 'border-[#20B2AA]/40' : 'border-[#1B2026] opacity-60'
                       )}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold text-[#E1E4E8]">
-                          {m.label}
-                        </span>
-                        <span
+                      <span className="font-mono text-xs font-bold text-[#E1E4E8]">
+                        {m.label}
+                      </span>
+                      <div className="flex flex-col gap-1.5">
+                        <button
+                          onClick={() => handleAdminMidMarketToggle(m.id, isMidMarketEnabled)}
+                          disabled={saving}
                           className={cn(
-                            'text-[9px] font-bold uppercase px-1.5 py-0.5 border rounded-xs',
-                            isAdminApproved
-                              ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
-                              : 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30'
+                            'w-full py-1 text-[9px] font-bold uppercase border transition-colors cursor-pointer rounded-xs',
+                            isMidMarketEnabled
+                              ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/30 hover:bg-[#E55353]/10 hover:text-[#E55353] hover:border-[#E55353]/30'
+                              : 'bg-[#E55353]/10 text-[#E55353] border-[#E55353]/30 hover:bg-[#20B2AA]/10 hover:text-[#20B2AA] hover:border-[#20B2AA]/30'
                           )}
                         >
-                          {isAdminApproved ? 'APPROVED' : 'DISABLED'}
-                        </span>
+                          MID: {isMidMarketEnabled ? 'ON' : 'OFF'}
+                        </button>
+                        <button
+                          onClick={() => handleAdminScalpToggle(m.id, isScalpEnabled)}
+                          disabled={saving}
+                          className={cn(
+                            'w-full py-1 text-[9px] font-bold uppercase border transition-colors cursor-pointer rounded-xs',
+                            isScalpEnabled
+                              ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/30 hover:bg-[#E55353]/10 hover:text-[#E55353] hover:border-[#E55353]/30'
+                              : 'bg-[#E55353]/10 text-[#E55353] border-[#E55353]/30 hover:bg-[#20B2AA]/10 hover:text-[#20B2AA] hover:border-[#20B2AA]/30'
+                          )}
+                        >
+                          SCALP: {isScalpEnabled ? 'ON' : 'OFF'}
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleAdminGlobalMarketToggle(m.id, isAdminApproved)}
-                        disabled={saving}
-                        className={cn(
-                          'w-full py-1 text-[10px] font-bold uppercase border transition-colors cursor-pointer rounded-xs',
-                          isAdminApproved
-                            ? 'bg-[#E55353]/10 text-[#E55353] border-[#E55353]/30 hover:bg-[#E55353]/20'
-                            : 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/30 hover:bg-[#20B2AA]/20'
-                        )}
-                      >
-                        {isAdminApproved ? 'Disable Market' : 'Approve Market'}
-                      </button>
                     </div>
                   );
                 }
 
-                // Regular User View: Can only activate/deactivate admin-approved markets
-                if (!isAdminApproved) {
+                // Regular User View: locked if admin disabled mid-market for this market
+                if (!isMidMarketEnabled) {
                   return (
                     <div
                       key={m.id}

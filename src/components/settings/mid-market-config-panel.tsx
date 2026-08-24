@@ -266,7 +266,7 @@ export function MidMarketConfigPanel({ initialConfig, onSave }: MidMarketConfigP
             </div>
             <Slider
               min={1}
-              max={5}
+              max={100}
               step={1}
               value={config.max_concurrent}
               onChange={(v) => update('max_concurrent', v)}

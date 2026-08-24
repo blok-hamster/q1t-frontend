@@ -83,24 +83,37 @@ const DEFAULT_CONFIG: MarketConfig = {
   retrace_entry_enabled: false,
   limit_entry_price: 0.70,
   fok_buffer_cents: 0.03,
+  take_profit_enabled: false,
+  take_profit_delta: 0.10,
   blocked_hours_utc: [],
 };
 
 function getTimeframeDefaults(marketType: string): Partial<MarketConfig> {
   if (marketType.includes('15m')) {
-    return { watch_start_seconds: 480, watch_end_seconds: 870 };
+    return { watch_start_seconds: 480, watch_end_seconds: 870, take_profit_delta: 0.12 };
   }
-  return { watch_start_seconds: 120, watch_end_seconds: 285 };
+  return { watch_start_seconds: 120, watch_end_seconds: 285, take_profit_delta: 0.10 };
 }
 
 interface MarketConfigPanelProps {
   marketType: string;
   initialConfig?: MarketConfig | null;
+  userSelectedMarkets?: string[];
+  isMidMarketActive?: boolean;
+  onToggleMarketActive?: (marketId: string) => void;
   onSave?: (config: MarketConfig) => void;
   isAdmin?: boolean;
 }
 
-export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin = false }: MarketConfigPanelProps) {
+export function MarketConfigPanel({
+  marketType,
+  initialConfig,
+  userSelectedMarkets = [],
+  isMidMarketActive = false,
+  onToggleMarketActive,
+  onSave,
+  isAdmin = false,
+}: MarketConfigPanelProps) {
   const [config, setConfig] = useState<MarketConfig>(
     { ...DEFAULT_CONFIG, ...initialConfig, market_type: marketType }
   );
@@ -173,11 +186,15 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
   const effectiveEntry = retraceEnabled ? (config.limit_entry_price ?? 0.70) : config.entry_share_price;
   const dynamicStopEnabled = config.dynamic_stop_enabled ?? true;
 
+  const tpEnabled = config.take_profit_enabled ?? false;
+  const tpDelta = config.take_profit_delta ?? (isInterval15m ? 0.12 : 0.10);
+  const winTargetPrice = tpEnabled ? Math.min(1.0, effectiveEntry + tpDelta) : 1.0;
+
   let effectiveStop: number;
   let effectiveRR: number;
 
   if (dynamicStopEnabled) {
-    const reward = 1.0 - effectiveEntry;
+    const reward = winTargetPrice - effectiveEntry;
     const targetRR = config.target_rr_ratio ?? 1.0;
     const idealStop = effectiveEntry - (reward / targetRR);
     effectiveStop = Math.max(idealStop, config.min_stop_floor ?? 0.50);
@@ -185,12 +202,12 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
     effectiveRR = risk > 0 ? reward / risk : 0;
   } else {
     effectiveStop = config.stop_loss_price;
-    const reward = 1.0 - effectiveEntry;
+    const reward = winTargetPrice - effectiveEntry;
     const risk = effectiveEntry - effectiveStop;
     effectiveRR = risk > 0 ? reward / risk : 0;
   }
 
-  const profitPerWin = config.num_shares * (1.0 - effectiveEntry);
+  const profitPerWin = config.num_shares * (winTargetPrice - effectiveEntry);
   const maxLossPerStop = config.num_shares * (effectiveEntry - effectiveStop);
   const lossesToWipeWin = maxLossPerStop > 0 ? profitPerWin / maxLossPerStop : Infinity;
   const breakEvenWinRate = maxLossPerStop > 0 ? maxLossPerStop / (profitPerWin + maxLossPerStop) : 0;
@@ -209,10 +226,16 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
             <Badge variant={effectiveRR >= 1.0 ? 'success' : effectiveRR >= (config.min_rr_ratio ?? 0.75) ? 'warning' : 'error'}>
               R:R {effectiveRR.toFixed(1)}:1
             </Badge>
-            <Switch
-              checked={config.enabled}
-              onChange={(checked) => update('enabled', checked)}
-            />
+            {isAdmin ? (
+              <Switch
+                checked={config.enabled}
+                onChange={(checked) => update('enabled', checked)}
+              />
+            ) : config.enabled === false ? (
+              <Badge variant="neutral">Disabled by Admin</Badge>
+            ) : (
+              <Badge variant="success">Active</Badge>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -291,7 +314,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
               </div>
               <Slider
                 min={1}
-                max={10}
+                max={100}
                 step={1}
                 value={config.max_concurrent}
                 onChange={(v) => update('max_concurrent', v)}
@@ -617,6 +640,43 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
                 </div>
               </div>
 
+              {/* Take-Profit Settings */}
+              <div className="space-y-3 border-t border-border-primary/50 pt-3">
+                <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
+                  Take-Profit
+                </h4>
+
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-text-primary">Take-Profit Exit</label>
+                  <Switch
+                    checked={config.take_profit_enabled ?? false}
+                    onChange={(checked) => update('take_profit_enabled', checked)}
+                  />
+                </div>
+
+                {(config.take_profit_enabled ?? false) && (
+                  <div className="space-y-2 pl-1 border-l-2 border-emerald-500/30 ml-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-text-secondary">Profit Delta ($ gain per share)</label>
+                      <span className="text-xs font-mono font-semibold text-emerald-400">
+                        +${(config.take_profit_delta ?? (isInterval15m ? 0.12 : 0.10)).toFixed(2)}
+                      </span>
+                    </div>
+                    <Slider
+                      min={5}
+                      max={25}
+                      step={1}
+                      value={(config.take_profit_delta ?? (isInterval15m ? 0.12 : 0.10)) * 100}
+                      onChange={(v) => update('take_profit_delta', v / 100)}
+                      formatValue={(v) => `+$${(v / 100).toFixed(2)}`}
+                    />
+                    <p className="text-xs text-text-tertiary">
+                      Exits position early when share price rises by this delta above entry price (e.g. entry $0.80 + $0.10 = sell at $0.90)
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Entry Filters */}
               <div className="space-y-3">
                 <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
@@ -726,7 +786,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs text-text-secondary">FOK Price Buffer</label>
+                    <label className="text-xs text-text-secondary">FOK Buy Buffer</label>
                     <span className="text-xs font-mono text-text-primary">
                       ${(config.fok_buffer_cents ?? 0.03).toFixed(2)}
                     </span>
@@ -740,7 +800,27 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
                     formatValue={(v) => `$${(v / 100).toFixed(2)}`}
                   />
                   <p className="text-xs text-text-tertiary">
-                    Extra cents above ask for FOK orders — higher = more fills, lower = less overpay
+                    Extra cents above ask for BUY FOK orders — higher = more fills, lower = less overpay
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">FOK Sell Buffer</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      ${(config.sell_buffer_cents ?? 0.01).toFixed(2)}
+                    </span>
+                  </div>
+                  <Slider
+                    min={1}
+                    max={5}
+                    step={1}
+                    value={(config.sell_buffer_cents ?? 0.01) * 100}
+                    onChange={(v) => update('sell_buffer_cents', v / 100)}
+                    formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Cents below market for SELL FOK orders (SL/TP exits) — lower preserves more profit
                   </p>
                 </div>
               </div>
@@ -793,7 +873,7 @@ export function MarketConfigPanel({ marketType, initialConfig, onSave, isAdmin =
                     </div>
                     <Slider
                       min={1}
-                      max={Math.max(10, config.max_concurrent)}
+                      max={100}
                       step={1}
                       value={config.max_concurrent}
                       onChange={(v) => update('max_concurrent', v)}

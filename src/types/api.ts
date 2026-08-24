@@ -136,6 +136,7 @@ export interface MarketConfig {
   limit_entry_price?: number;
   // FOK limit price buffer
   fok_buffer_cents?: number;
+  sell_buffer_cents?: number;
   // Scalp strategy
   scalp_enabled?: boolean;
   scalp_max_entry?: number;
@@ -157,6 +158,8 @@ export interface MarketConfig {
   stop_loss_hard_floor_cents?: number;
   time_exit_seconds?: number;
   time_exit_threshold?: number;
+  take_profit_enabled?: boolean;
+  take_profit_delta?: number;
 }
 
 export interface AiV2Config {

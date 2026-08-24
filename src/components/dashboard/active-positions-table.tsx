@@ -101,8 +101,9 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [midData, tradesData, strategyData, marketConfigData] = await Promise.all([
+        const [midData, scalpData, tradesData, strategyData, marketConfigData] = await Promise.all([
           executionApi.getMidMarketStats(),
+          executionApi.getScalpStats(),
           executionApi.getTrades(),
           settingsApi.getStrategySelection(),
           settingsApi.getMarketConfigs(),
@@ -161,10 +162,10 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
         });
 
         setMidStats({
-          trades: midData.daily_trades ?? 0,
-          wins: midData.daily_wins ?? 0,
-          losses: midData.daily_losses ?? 0,
-          pnl: midData.daily_pnl ?? 0,
+          trades: (midData.daily_trades ?? 0) + (scalpData.daily_trades ?? 0),
+          wins: (midData.daily_wins ?? 0) + (scalpData.daily_wins ?? 0),
+          losses: (midData.daily_losses ?? 0) + (scalpData.daily_losses ?? 0),
+          pnl: (midData.daily_pnl ?? 0) + (scalpData.daily_pnl ?? 0),
         });
       } catch {}
     };
@@ -202,8 +203,13 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
     };
 
     const refetchMidStats = () => {
-      executionApi.getMidMarketStats().then(d => {
-        setMidStats({ trades: d.daily_trades ?? 0, wins: d.daily_wins ?? 0, losses: d.daily_losses ?? 0, pnl: d.daily_pnl ?? 0 });
+      Promise.all([executionApi.getMidMarketStats(), executionApi.getScalpStats()]).then(([mid, scalp]) => {
+        setMidStats({
+          trades: (mid.daily_trades ?? 0) + (scalp.daily_trades ?? 0),
+          wins: (mid.daily_wins ?? 0) + (scalp.daily_wins ?? 0),
+          losses: (mid.daily_losses ?? 0) + (scalp.daily_losses ?? 0),
+          pnl: (mid.daily_pnl ?? 0) + (scalp.daily_pnl ?? 0),
+        });
       }).catch(() => {});
     };
 
@@ -243,12 +249,14 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
     socket.on('mid_market_entry', midEntryHandler);
     socket.on('mid_market_stop', midExitHandler);
     socket.on('mid_market_resolved', midExitHandler);
+    socket.on('scalp_exit', refetchMidStats);
 
     return () => {
       socket.off('mid_market_update', midUpdateHandler);
       socket.off('mid_market_entry', midEntryHandler);
       socket.off('mid_market_stop', midExitHandler);
       socket.off('mid_market_resolved', midExitHandler);
+      socket.off('scalp_exit', refetchMidStats);
     };
   }, [socket]);
 
@@ -367,7 +375,10 @@ function MarketCard({ market, state }: { market: typeof ALL_MARKETS[0]; state: M
   const isLong = pos?.direction === 'UP';
 
   return (
-    <Link href={`/strategies/mid-market?market=${market.id}`} className="block group">
+    <Link
+      href={`/strategies/mid-market?market=${market.id}${pos?.strategy === 'scalp' ? '&strategy=scalp' : ''}`}
+      className="block group"
+    >
       <div
         className={`p-3 border transition-all rounded-xs space-y-2 font-mono relative overflow-hidden cursor-pointer ${
           pos
@@ -393,7 +404,7 @@ function MarketCard({ market, state }: { market: typeof ALL_MARKETS[0]; state: M
               </span>
             </div>
             <span className="font-mono underline">
-              @ ${pos.entry_price.toFixed(2)}
+              @ ${(pos.entry_price ?? 0).toFixed(2)}
             </span>
           </div>
         )}

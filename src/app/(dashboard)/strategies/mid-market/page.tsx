@@ -9,12 +9,14 @@ import { PolymarketStrikeChart } from '@/components/mid-market/polymarket-strike
 import { MobileChartWrapper } from '@/components/mid-market/mobile-chart-wrapper';
 import { MidMarketForecastBars } from '@/components/mid-market/mid-market-forecast-bars';
 import { MidMarketMonitor } from '@/components/dashboard/mid-market-monitor';
+import { ScalpMonitor } from '@/components/dashboard/scalp-monitor';
 import { MarketConfigPanel } from '@/components/settings/market-config-panel';
+import { ScalpConfigPanel } from '@/components/settings/scalp-config-panel';
 import { MobileBottomSheet } from '@/components/ui/mobile-bottom-sheet';
 import { Loading } from '@/components/ui/loading';
 import { toast } from '@/context/toast-context';
 import type { StrategySelection, MarketConfig } from '@/types/api';
-import { Settings, ChevronDown, ChevronUp, Activity, BarChart2, Sliders } from 'lucide-react';
+import { Settings, ChevronDown, ChevronUp, Activity, BarChart2, Sliders, TrendingUp, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 const MARKET_LABELS: Record<string, { label: string; asset: string }> = {
@@ -28,6 +30,8 @@ const MARKET_LABELS: Record<string, { label: string; asset: string }> = {
   'doge-15m': { label: 'DOGE 15m', asset: 'DOGE' },
 };
 
+type StrategyMode = 'mid_market' | 'scalp';
+
 export default function MidMarketStrategyPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -39,11 +43,12 @@ export default function MidMarketStrategyPage() {
   const [strategy, setStrategy] = useState<StrategySelection | null>(null);
   const [marketConfigs, setMarketConfigs] = useState<MarketConfig[]>([]);
   const [selectedMarket, setSelectedMarket] = useState<string>('btc-5m');
+  const [activeStrategyMode, setActiveStrategyMode] = useState<StrategyMode>('mid_market');
   const [showConfig, setShowConfig] = useState<boolean>(true);
   const [mobileConfigOpen, setMobileConfigOpen] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<'chart' | 'forecast' | 'config'>('chart');
 
-  // Stats for the active window
+  // Stats for the active window chart ticks
   const [stats, setStats] = useState<{
     strike_price: number | null;
     btc_price: number | null;
@@ -60,6 +65,10 @@ export default function MidMarketStrategyPage() {
     if (marketParam && MARKET_LABELS[marketParam]) {
       setSelectedMarket(marketParam);
     }
+    const stratParam = searchParams.get('strategy');
+    if (stratParam === 'scalp' || stratParam === 'mid_market') {
+      setActiveStrategyMode(stratParam as StrategyMode);
+    }
   }, [searchParams]);
 
   // Reset stats on market selection change
@@ -75,14 +84,19 @@ export default function MidMarketStrategyPage() {
       const mt = (data?.market_type || 'btc-5m').toLowerCase();
       if (mt !== selectedMarket.toLowerCase()) return;
 
-      const validPrice = typeof data?.asset_price === 'number' && data.asset_price > 0 ? data.asset_price : null;
+      const validPrice =
+        typeof data?.asset_price === 'number' && data.asset_price > 0 ? data.asset_price : null;
 
       setStats((prev) => ({
-        strike_price: typeof data.strike_price === 'number' && data.strike_price > 0 ? data.strike_price : (prev?.strike_price ?? null),
-        btc_price: validPrice ?? (prev?.btc_price ?? null),
-        price_distance: typeof data.price_distance === 'number' ? data.price_distance : (prev?.price_distance ?? null),
-        up_price: typeof data.up_price === 'number' ? data.up_price : (prev?.up_price ?? null),
-        down_price: typeof data.down_price === 'number' ? data.down_price : (prev?.down_price ?? null),
+        strike_price:
+          typeof data.strike_price === 'number' && data.strike_price > 0
+            ? data.strike_price
+            : prev?.strike_price ?? null,
+        btc_price: validPrice ?? prev?.btc_price ?? null,
+        price_distance:
+          typeof data.price_distance === 'number' ? data.price_distance : prev?.price_distance ?? null,
+        up_price: typeof data.up_price === 'number' ? data.up_price : prev?.up_price ?? null,
+        down_price: typeof data.down_price === 'number' ? data.down_price : prev?.down_price ?? null,
       }));
     };
 
@@ -102,7 +116,7 @@ export default function MidMarketStrategyPage() {
         setStrategy(stratRes.strategySelection);
         setMarketConfigs(marketsRes.marketConfigs || []);
       } catch (err) {
-        toast.error('Failed to load mid-market settings');
+        toast.error('Failed to load strategy settings');
       } finally {
         setLoading(false);
       }
@@ -110,7 +124,7 @@ export default function MidMarketStrategyPage() {
     loadSettings();
   }, []);
 
-  // Poll active window metrics for current market
+  // Activity ping interval
   useEffect(() => {
     const id = setInterval(() => {
       setHasActivity((prev) => ({ ...prev, [selectedMarket]: true }));
@@ -121,26 +135,56 @@ export default function MidMarketStrategyPage() {
     return () => clearInterval(id);
   }, [selectedMarket]);
 
-  if (loading) return <Loading text="Initializing Mid-Market Engine..." />;
+  if (loading) return <Loading text="Initializing Market Engine..." />;
 
   const adminApprovedMarkets = marketConfigs
-    .filter((c) => c.enabled !== false)
+    .filter((c) => (activeStrategyMode === 'scalp' ? c.scalp_enabled === true : c.enabled !== false))
     .map((c) => c.market_type);
-  const userSelectedMarkets = (strategy?.mid_market_markets || []).filter(
-    (m) => adminApprovedMarkets.length === 0 || adminApprovedMarkets.includes(m)
-  );
 
-  // For Admins: Show ALL supported markets so admin can click & configure any market parameters easily.
-  // For Regular Users: Show user's selected markets (or all admin-approved markets if user hasn't customized).
-  const enabledMarkets = user?.isAdmin
-    ? Object.keys(MARKET_LABELS)
-    : (userSelectedMarkets.length > 0 ? userSelectedMarkets : (adminApprovedMarkets.length > 0 ? adminApprovedMarkets : ['btc-5m']));
-  const isStrategyActive = strategy?.active_strategies?.includes('mid_market') ?? false;
+  const enabledMarkets = adminApprovedMarkets;
+
+  const isMidMarketActive = strategy?.active_strategies?.includes('mid_market') ?? false;
+  const isScalpActive = strategy?.active_strategies?.includes('scalp') ?? false;
+  const isCurrentModeActive =
+    activeStrategyMode === 'mid_market' ? isMidMarketActive : isScalpActive;
+
+  const handleStrategyChange = (mode: StrategyMode) => {
+    setActiveStrategyMode(mode);
+    router.replace(`${pathname}?market=${selectedMarket}&strategy=${mode}`, { scroll: false });
+  };
+
+  const handleUserMarketToggle = async (marketId: string) => {
+    const currentMarkets = strategy?.mid_market_markets || [];
+    const updatedMarkets = currentMarkets.includes(marketId)
+      ? currentMarkets.filter((m) => m !== marketId)
+      : [...currentMarkets, marketId];
+
+    const currentStrats = strategy?.active_strategies || [];
+    const updatedStrats = !currentStrats.includes(activeStrategyMode)
+      ? [...currentStrats, activeStrategyMode]
+      : currentStrats;
+
+    try {
+      const resp = await settingsApi.updateStrategySelection({
+        mid_market_markets: updatedMarkets,
+        active_strategies: updatedStrats,
+      });
+      setStrategy(resp.strategySelection);
+      toast.success(
+        updatedMarkets.includes(marketId)
+          ? `Activated ${MARKET_LABELS[marketId]?.label || marketId} for ${activeStrategyMode.replace('_', ' ').toUpperCase()}`
+          : `Deactivated ${MARKET_LABELS[marketId]?.label || marketId}`
+      );
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update market activation');
+    }
+  };
 
   return (
     <div className="space-y-4 max-w-[1600px] mx-auto px-2 sm:px-4 py-3 select-none font-mono text-xs">
-      {/* Top Market Selector & Horizontal Scroll Tabs */}
+      {/* Top Bar: Market Selector Tabs & Strategy Mode Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F1215] p-2.5 border border-[#1B2026]">
+        {/* Left: Market Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none max-w-full py-0.5">
           {enabledMarkets.map((mt) => {
             const isApproved = adminApprovedMarkets.includes(mt);
@@ -149,7 +193,9 @@ export default function MidMarketStrategyPage() {
                 key={mt}
                 onClick={() => {
                   setSelectedMarket(mt);
-                  router.replace(`${pathname}?market=${mt}`, { scroll: false });
+                  router.replace(`${pathname}?market=${mt}&strategy=${activeStrategyMode}`, {
+                    scroll: false,
+                  });
                 }}
                 className={cn(
                   'px-3 py-1.5 font-mono text-xs font-bold uppercase transition-all rounded-xs flex items-center gap-1.5 shrink-0 cursor-pointer',
@@ -172,19 +218,49 @@ export default function MidMarketStrategyPage() {
           })}
         </div>
 
-        {/* Global Strategy Engine Status */}
-        <div className="flex items-center justify-between sm:justify-end gap-2 font-mono text-xs pt-1 sm:pt-0 border-t sm:border-t-0 border-[#1B2026]">
-          <span className="text-[#586069] text-[10px] uppercase font-bold">ENGINE STATE:</span>
-          <span
-            className={cn(
-              'px-2 py-0.5 font-bold uppercase text-[10px] rounded-xs border',
-              isStrategyActive
-                ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
-                : 'bg-[#586069]/15 text-[#586069] border-[#586069]/30'
-            )}
-          >
-            {isStrategyActive ? '● ENGINE ONLINE' : '○ INACTIVE'}
-          </span>
+        {/* Right: Strategy Switcher & Status */}
+        <div className="flex items-center justify-between sm:justify-end gap-3 font-mono text-xs pt-2 sm:pt-0 border-t sm:border-t-0 border-[#1B2026]">
+          {/* Strategy Toggle Segmented Bar */}
+          <div className="flex items-center bg-[#080A0C] border border-[#1B2026] p-0.5 rounded-xs">
+            <button
+              onClick={() => handleStrategyChange('mid_market')}
+              className={cn(
+                'px-2.5 py-1 text-[10px] font-bold uppercase flex items-center gap-1 transition-all rounded-xs cursor-pointer',
+                activeStrategyMode === 'mid_market'
+                  ? 'bg-[#16191E] text-[#20B2AA] border border-[#20B2AA]/40 shadow-sm'
+                  : 'text-[#8B949E] hover:text-[#E1E4E8]'
+              )}
+            >
+              <TrendingUp className="h-3 w-3" /> MID-MARKET
+            </button>
+            <button
+              onClick={() => handleStrategyChange('scalp')}
+              className={cn(
+                'px-2.5 py-1 text-[10px] font-bold uppercase flex items-center gap-1 transition-all rounded-xs cursor-pointer',
+                activeStrategyMode === 'scalp'
+                  ? 'bg-[#16191E] text-[#20B2AA] border border-[#20B2AA]/40 shadow-sm'
+                  : 'text-[#8B949E] hover:text-[#E1E4E8]'
+              )}
+            >
+              <Shield className="h-3 w-3" /> SCALP
+            </button>
+          </div>
+
+          {/* Engine Status */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span
+              className={cn(
+                'px-2 py-0.5 font-bold uppercase text-[10px] rounded-xs border',
+                isCurrentModeActive
+                  ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
+                  : 'bg-[#586069]/15 text-[#586069] border-[#586069]/30'
+              )}
+            >
+              {isCurrentModeActive
+                ? `● ${activeStrategyMode.replace('_', '-').toUpperCase()} ONLINE`
+                : '○ INACTIVE'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -220,16 +296,15 @@ export default function MidMarketStrategyPage() {
         </button>
       </div>
 
-      {/* Main Grid Section: Responsive Switcher for Mobile / Dual Column Desktop */}
+      {/* Main Grid Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left Column: Polymarket Chart & Forecast Bar Stack */}
+        {/* Left Column: Polymarket Chart & Forecast Bars */}
         <div
           className={cn(
             'lg:col-span-2 space-y-4',
             mobileTab !== 'chart' && mobileTab !== 'forecast' && 'hidden lg:block'
           )}
         >
-          {/* Mobile Specific Chart Wrapper with Touch Lock (< lg) */}
           <div className="lg:hidden">
             <MobileChartWrapper
               marketType={selectedMarket}
@@ -241,7 +316,6 @@ export default function MidMarketStrategyPage() {
             />
           </div>
 
-          {/* Desktop Full Polymarket Strike Chart (>= lg) */}
           <div className="hidden lg:block">
             <PolymarketStrikeChart
               marketType={selectedMarket}
@@ -264,11 +338,16 @@ export default function MidMarketStrategyPage() {
           </div>
         </div>
 
-        {/* Right Sidebar Column: Mid-Market Monitor + Market Config Side Panel (Desktop) */}
+        {/* Right Sidebar Column: Dynamic Strategy Monitor + Config Panel */}
         <div className="hidden lg:block space-y-4">
-          <MidMarketMonitor enabled={isStrategyActive} marketType={selectedMarket} />
+          {/* Dynamic Monitor based on Active Strategy Mode */}
+          {activeStrategyMode === 'mid_market' ? (
+            <MidMarketMonitor enabled={isMidMarketActive} marketType={selectedMarket} />
+          ) : (
+            <ScalpMonitor enabled={isScalpActive} marketType={selectedMarket} />
+          )}
 
-          {/* Config Drawer Toggle Button */}
+          {/* Config Toggle Drawer Button */}
           <div className="bg-[#0F1215] border border-[#1B2026] p-3">
             <button
               onClick={() => setShowConfig(!showConfig)}
@@ -276,7 +355,10 @@ export default function MidMarketStrategyPage() {
             >
               <div className="flex items-center gap-2">
                 <Settings className="h-4 w-4 text-[#20B2AA]" />
-                <span>CONFIGURE {MARKET_LABELS[selectedMarket]?.label || selectedMarket}</span>
+                <span>
+                  CONFIGURE {activeStrategyMode.replace('_', '-').toUpperCase()} —{' '}
+                  {MARKET_LABELS[selectedMarket]?.label || selectedMarket}
+                </span>
               </div>
               {showConfig ? (
                 <ChevronUp className="h-4 w-4 text-[#8B949E]" />
@@ -286,23 +368,53 @@ export default function MidMarketStrategyPage() {
             </button>
           </div>
 
-          {/* Per-Market Configuration Sidebar Panel */}
-          {showConfig && (
-            <MarketConfigPanel
-              marketType={selectedMarket}
-              isAdmin={user?.isAdmin}
-              initialConfig={marketConfigs.find((c) => c.market_type === selectedMarket) || null}
-              onSave={(updatedConfig) => {
-                setMarketConfigs((prev) => {
-                  const exists = prev.find((c) => c.market_type === selectedMarket);
-                  if (exists) {
-                    return prev.map((c) => (c.market_type === selectedMarket ? updatedConfig : c));
-                  }
-                  return [...prev, updatedConfig];
-                });
-              }}
-            />
-          )}
+          {/* Dynamic Per-Market Configuration Panel */}
+          {showConfig &&
+            (activeStrategyMode === 'mid_market' ? (
+              <MarketConfigPanel
+                marketType={selectedMarket}
+                isAdmin={user?.isAdmin}
+                userSelectedMarkets={strategy?.mid_market_markets || []}
+                isMidMarketActive={isMidMarketActive}
+                onToggleMarketActive={handleUserMarketToggle}
+                initialConfig={
+                  marketConfigs.find((c) => c.market_type === selectedMarket) || null
+                }
+                onSave={(updatedConfig) => {
+                  setMarketConfigs((prev) => {
+                    const exists = prev.find((c) => c.market_type === selectedMarket);
+                    if (exists) {
+                      return prev.map((c) =>
+                        c.market_type === selectedMarket ? updatedConfig : c
+                      );
+                    }
+                    return [...prev, updatedConfig];
+                  });
+                }}
+              />
+            ) : (
+              <ScalpConfigPanel
+                marketType={selectedMarket}
+                isAdmin={user?.isAdmin}
+                userSelectedMarkets={strategy?.mid_market_markets || []}
+                isScalpActive={isScalpActive}
+                onToggleMarketActive={handleUserMarketToggle}
+                initialConfig={
+                  marketConfigs.find((c) => c.market_type === selectedMarket) || null
+                }
+                onSave={(updatedConfig) => {
+                  setMarketConfigs((prev) => {
+                    const exists = prev.find((c) => c.market_type === selectedMarket);
+                    if (exists) {
+                      return prev.map((c) =>
+                        c.market_type === selectedMarket ? updatedConfig : c
+                      );
+                    }
+                    return [...prev, updatedConfig];
+                  });
+                }}
+              />
+            ))}
         </div>
       </div>
 
@@ -310,24 +422,50 @@ export default function MidMarketStrategyPage() {
       <MobileBottomSheet
         isOpen={mobileConfigOpen}
         onClose={() => setMobileConfigOpen(false)}
-        title={`CONFIGURE ${MARKET_LABELS[selectedMarket]?.label || selectedMarket}`}
+        title={`CONFIGURE ${activeStrategyMode.replace('_', '-').toUpperCase()} — ${
+          MARKET_LABELS[selectedMarket]?.label || selectedMarket
+        }`}
         subtitle="RISK METRICS, SPREADS & POSITION SIZING"
       >
-        <MarketConfigPanel
-          marketType={selectedMarket}
-          isAdmin={user?.isAdmin}
-          initialConfig={marketConfigs.find((c) => c.market_type === selectedMarket) || null}
-          onSave={(updatedConfig) => {
-            setMarketConfigs((prev) => {
-              const exists = prev.find((c) => c.market_type === selectedMarket);
-              if (exists) {
-                return prev.map((c) => (c.market_type === selectedMarket ? updatedConfig : c));
-              }
-              return [...prev, updatedConfig];
-            });
-            setMobileConfigOpen(false);
-          }}
-        />
+        {activeStrategyMode === 'mid_market' ? (
+          <MarketConfigPanel
+            marketType={selectedMarket}
+            isAdmin={user?.isAdmin}
+            userSelectedMarkets={strategy?.mid_market_markets || []}
+            isMidMarketActive={isMidMarketActive}
+            onToggleMarketActive={handleUserMarketToggle}
+            initialConfig={marketConfigs.find((c) => c.market_type === selectedMarket) || null}
+            onSave={(updatedConfig) => {
+              setMarketConfigs((prev) => {
+                const exists = prev.find((c) => c.market_type === selectedMarket);
+                if (exists) {
+                  return prev.map((c) => (c.market_type === selectedMarket ? updatedConfig : c));
+                }
+                return [...prev, updatedConfig];
+              });
+              setMobileConfigOpen(false);
+            }}
+          />
+        ) : (
+          <ScalpConfigPanel
+            marketType={selectedMarket}
+            isAdmin={user?.isAdmin}
+            userSelectedMarkets={strategy?.mid_market_markets || []}
+            isScalpActive={isScalpActive}
+            onToggleMarketActive={handleUserMarketToggle}
+            initialConfig={marketConfigs.find((c) => c.market_type === selectedMarket) || null}
+            onSave={(updatedConfig) => {
+              setMarketConfigs((prev) => {
+                const exists = prev.find((c) => c.market_type === selectedMarket);
+                if (exists) {
+                  return prev.map((c) => (c.market_type === selectedMarket ? updatedConfig : c));
+                }
+                return [...prev, updatedConfig];
+              });
+              setMobileConfigOpen(false);
+            }}
+          />
+        )}
       </MobileBottomSheet>
     </div>
   );
