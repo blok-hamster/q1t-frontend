@@ -96,7 +96,8 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
               dailyPnl: ms.pnl,
             };
           }
-          const pos = stats.positions?.[id];
+          const posRaw = stats.positions?.[id];
+          const pos = Array.isArray(posRaw) ? posRaw[0] : posRaw;
           if (pos) {
             updated[id] = {
               ...updated[id],

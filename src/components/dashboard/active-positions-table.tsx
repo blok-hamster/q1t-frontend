@@ -122,7 +122,8 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
         setMarkets(prev => {
           const updated = { ...prev };
           for (const id of Object.keys(updated)) {
-            const midPos = midData.positions?.[id];
+            const midPosRaw = midData.positions?.[id];
+            const midPos = Array.isArray(midPosRaw) ? midPosRaw[0] : midPosRaw;
             if (midPos && enabledStrats.includes('mid_market')) {
               updated[id] = {
                 ...updated[id],

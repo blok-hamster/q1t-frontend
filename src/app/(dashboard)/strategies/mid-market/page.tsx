@@ -10,6 +10,7 @@ import { MobileChartWrapper } from '@/components/mid-market/mobile-chart-wrapper
 import { MidMarketForecastBars } from '@/components/mid-market/mid-market-forecast-bars';
 import { MidMarketMonitor } from '@/components/dashboard/mid-market-monitor';
 import { ScalpMonitor } from '@/components/dashboard/scalp-monitor';
+import { CoinStreakPanel } from '@/components/dashboard/coin-streak-panel';
 import { MarketConfigPanel } from '@/components/settings/market-config-panel';
 import { ScalpConfigPanel } from '@/components/settings/scalp-config-panel';
 import { MobileBottomSheet } from '@/components/ui/mobile-bottom-sheet';
@@ -346,6 +347,9 @@ export default function MidMarketStrategyPage() {
           ) : (
             <ScalpMonitor enabled={isScalpActive} marketType={selectedMarket} />
           )}
+
+          {/* Coin Streak & Probe Status (all markets) */}
+          {activeStrategyMode === 'mid_market' && <CoinStreakPanel />}
 
           {/* Config Toggle Drawer Button */}
           <div className="bg-[#0F1215] border border-[#1B2026] p-3">

@@ -160,6 +160,19 @@ export interface MarketConfig {
   time_exit_threshold?: number;
   take_profit_enabled?: boolean;
   take_profit_delta?: number;
+  max_hold_seconds?: number;
+  max_hold_drawdown?: number;
+  max_losses_per_window?: number;
+  entry_dedup_seconds?: number;
+  // Coin streak: auto-pause cold coins and resume only after a win streak
+  streak_enabled?: boolean;
+  streak_lookback?: number;
+  streak_min_wins?: number;
+  streak_resume_wins?: number;
+  streak_probe_shares?: number;
+  // Hard-floor win-rate gate: block entries while daily WR < min_win_rate after min_win_rate_trades
+  min_win_rate?: number;
+  min_win_rate_trades?: number;
 }
 
 export interface AiV2Config {

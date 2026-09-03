@@ -10,9 +10,18 @@ export interface MarketStats {
 }
 
 export interface PositionInfo {
+  trade_id: string;
   direction: string;
   entry_price: number;
   num_shares?: number;
+  probe?: boolean;
+  stop_loss_price?: number;
+  take_profit_price?: number;
+}
+
+export interface CoinStreakState {
+  streak: string[];
+  paused: boolean;
 }
 
 export interface MidMarketDailyStats {
@@ -21,7 +30,8 @@ export interface MidMarketDailyStats {
   daily_losses: number;
   daily_pnl: number;
   per_market: Record<string, MarketStats>;
-  positions: Record<string, PositionInfo>;
+  positions: Record<string, PositionInfo[]>;
+  streaks?: Record<string, CoinStreakState>;
 }
 
 export interface ScalpPositionInfo {

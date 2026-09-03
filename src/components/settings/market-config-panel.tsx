@@ -677,12 +677,250 @@ export function MarketConfigPanel({
                 )}
               </div>
 
+              {/* Max Hold */}
+              <div className="space-y-3 border-t border-border-primary/50 pt-3">
+                <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
+                  Max Hold
+                </h4>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Max Hold Time</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      {config.max_hold_seconds ?? 0}s
+                    </span>
+                  </div>
+                  <Slider
+                    min={0}
+                    max={300}
+                    step={10}
+                    value={config.max_hold_seconds ?? 0}
+                    onChange={(v) => update('max_hold_seconds', v)}
+                    formatValue={(v) => v === 0 ? 'OFF' : `${v}s`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Force exit if position held longer than this and underwater by drawdown threshold (0 = disabled)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Max Hold Drawdown</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      ${(config.max_hold_drawdown ?? 0.10).toFixed(2)}
+                    </span>
+                  </div>
+                  <Slider
+                    min={3}
+                    max={25}
+                    step={1}
+                    value={(config.max_hold_drawdown ?? 0.10) * 100}
+                    onChange={(v) => update('max_hold_drawdown', v / 100)}
+                    formatValue={(v) => `$${(v / 100).toFixed(2)}`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Only exit if price is this far below entry — prevents cutting positions that are barely dipping
+                  </p>
+                </div>
+              </div>
+
+              {/* Window Kill-Switch & Dedup */}
+              <div className="space-y-3 border-t border-border-primary/50 pt-3">
+                <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
+                  Risk Controls
+                </h4>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Max Losses Per Window</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      {config.max_losses_per_window ?? 1}
+                    </span>
+                  </div>
+                  <Slider
+                    min={0}
+                    max={5}
+                    step={1}
+                    value={config.max_losses_per_window ?? 1}
+                    onChange={(v) => update('max_losses_per_window', v)}
+                    formatValue={(v) => v === 0 ? 'OFF' : `${v}`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Stop trading a window after this many stop-losses (0 = disabled). Windows with prior losses historically underperform badly.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Entry Dedup Lock</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      {(config.entry_dedup_seconds ?? 4)}s
+                    </span>
+                  </div>
+                  <Slider
+                    min={0}
+                    max={15}
+                    step={1}
+                    value={config.entry_dedup_seconds ?? 4}
+                    onChange={(v) => update('entry_dedup_seconds', v)}
+                    formatValue={(v) => v === 0 ? 'OFF' : `${v}s`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Minimum seconds between entries per market — prevents machine-gun duplicate entries when position hash is stale.
+                  </p>
+                </div>
+              </div>
+
+              {/* Coin Streak & Pause */}
+              <div className="space-y-3 border-t border-border-primary/50 pt-3">
+                <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
+                  Coin Streak & Pause
+                </h4>
+
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-text-primary">Auto-Pause Losing Coins</label>
+                  <Switch
+                    checked={config.streak_enabled ?? true}
+                    onChange={(checked) => update('streak_enabled', checked)}
+                  />
+                </div>
+                <p className="text-xs text-text-tertiary">
+                  Pauses a coin when it goes cold ({config.streak_lookback ?? 4}-trade window with few wins). While paused, the engine opens paper probes so the streak keeps updating, and only re-enters with real money once the probes string together wins.
+                </p>
+
+                {(config.streak_enabled ?? true) && (
+                  <div className="space-y-2 pl-1 border-l-2 border-amber-500/30 ml-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-text-secondary">Streak Lookback (trades)</label>
+                      <span className="text-xs font-mono text-text-primary">{config.streak_lookback ?? 4}</span>
+                    </div>
+                    <Slider
+                      min={2}
+                      max={8}
+                      step={1}
+                      value={config.streak_lookback ?? 4}
+                      onChange={(v) => update('streak_lookback', v)}
+                      formatValue={(v) => `${v}`}
+                    />
+                    <p className="text-xs text-text-tertiary">
+                      How many recent win/loss results per coin the streak tracks.
+                    </p>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-text-secondary">Min Wins to Stay Active</label>
+                      <span className="text-xs font-mono text-text-primary">{config.streak_min_wins ?? 3}</span>
+                    </div>
+                    <Slider
+                      min={1}
+                      max={7}
+                      step={1}
+                      value={config.streak_min_wins ?? 3}
+                      onChange={(v) => update('streak_min_wins', v)}
+                      formatValue={(v) => `${v}`}
+                    />
+                    <p className="text-xs text-text-tertiary">
+                      If wins in the lookback window fall to this threshold (e.g. ≤1 in 4), the coin gets paused.
+                    </p>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-text-secondary">Wins to Resume</label>
+                      <span className="text-xs font-mono text-text-primary">{config.streak_resume_wins ?? 2}</span>
+                    </div>
+                    <Slider
+                      min={1}
+                      max={7}
+                      step={1}
+                      value={config.streak_resume_wins ?? 2}
+                      onChange={(v) => update('streak_resume_wins', v)}
+                      formatValue={(v) => `${v}`}
+                    />
+                    <p className="text-xs text-text-tertiary">
+                      Probes while paused must reach this many wins in the trailing (lookback-1) window to resume real trading.
+                    </p>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-text-secondary">Probe Shares</label>
+                      <span className="text-xs font-mono text-text-primary">{config.streak_probe_shares ?? 1}</span>
+                    </div>
+                    <Slider
+                      min={1}
+                      max={10}
+                      step={1}
+                      value={config.streak_probe_shares ?? 1}
+                      onChange={(v) => update('streak_probe_shares', v)}
+                      formatValue={(v) => `${v}`}
+                    />
+                    <p className="text-xs text-text-tertiary">
+                      Shares for each paper probe. Probes are virtual — no money, no balance changes.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Hard-Floor Win Rate Gate */}
+              <div className="space-y-3 border-t border-border-primary/50 pt-3">
+                <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
+                  Win Rate Floor
+                </h4>
+
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-text-primary">Enable Win-Rate Floor</label>
+                  <Switch
+                    checked={(config.min_win_rate ?? 0) > 0}
+                    onChange={(checked) =>
+                      update('min_win_rate', checked ? 0.62 : 0)
+                    }
+                  />
+                </div>
+                <p className="text-xs text-text-tertiary">
+                  Once the market has enough daily trades, new real entries are soft-blocked while its daily
+                  win rate is below the floor. Trading auto-resumes once the win rate recovers above it.
+                </p>
+
+                {(config.min_win_rate ?? 0) > 0 && (
+                  <div className="space-y-2 pl-1 border-l-2 border-red-500/30 ml-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-text-secondary">Min Win Rate (%)</label>
+                      <span className="text-xs font-mono text-text-primary">
+                        {Math.round((config.min_win_rate ?? 0) * 100)}%
+                      </span>
+                    </div>
+                    <Slider
+                      min={40}
+                      max={80}
+                      step={1}
+                      value={Math.round((config.min_win_rate ?? 0) * 100)}
+                      onChange={(v) => update('min_win_rate', v / 100)}
+                      formatValue={(v) => `${v}%`}
+                    />
+                    <p className="text-xs text-text-tertiary">
+                      Block entries when daily WR drops below this. Lower = more aggressive protection; higher = tighter filter but blocks more trades.
+                    </p>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-text-secondary">Min Trades to Apply</label>
+                      <span className="text-xs font-mono text-text-primary">{config.min_win_rate_trades ?? 25}</span>
+                    </div>
+                    <Slider
+                      min={5}
+                      max={100}
+                      step={5}
+                      value={config.min_win_rate_trades ?? 25}
+                      onChange={(v) => update('min_win_rate_trades', v)}
+                      formatValue={(v) => `${v}`}
+                    />
+                    <p className="text-xs text-text-tertiary">
+                      Minimum daily trade count before the floor takes effect (avoids triggering on tiny samples).
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Entry Filters */}
               <div className="space-y-3">
                 <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
                   Entry Filters
                 </h4>
-
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs text-text-secondary">Max Entry Price (slippage cap)</label>
