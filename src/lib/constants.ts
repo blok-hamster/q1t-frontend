@@ -31,7 +31,6 @@ export const API_ENDPOINTS = {
   // Execution
   EXECUTION_LEDGER: '/api/execution/ledger',
   EXECUTION_MID_MARKET_STATS: '/api/execution/mid-market-stats',
-  EXECUTION_SCALP_STATS: '/api/execution/scalp-stats',
 
   // Market
   MARKET_DETAILS: (slug: string) => `/api/market/${slug}`,
@@ -80,6 +79,7 @@ export const API_ENDPOINTS = {
   ADMIN_PREDICTIONS: '/api/admin/predictions',
   ADMIN_PREDICTIONS_EXPORT: '/api/admin/predictions/export',
   ADMIN_MARKET_CONFIGS: '/api/admin/market-configs',
+  ADMIN_MARKET_CONFIGS_BULK: '/api/admin/market-configs/bulk-apply',
 } as const;
 
 /**
@@ -276,7 +276,6 @@ export const ROUTES = {
   STRATEGIES_PREDICTIONS: '/strategies/predictions',
   STRATEGIES_AI_PREDICTION: '/strategies/ai-prediction',
   STRATEGIES_MID_MARKET: '/strategies/mid-market',
-  STRATEGIES_SCALP: '/strategies/scalp',
   PORTFOLIO: '/portfolio',
   TRADES: '/trades',
   SETTINGS: '/settings',
@@ -286,6 +285,7 @@ export const ROUTES = {
   ADMIN_USER_DETAIL: (userId: string) => `/admin/users/${userId}`,
   ADMIN_INVITES: '/admin/invites',
   ADMIN_PREDICTIONS: '/admin/predictions',
+  ADMIN_MARKET_CONFIGS_PAGE: '/admin/market-configs',
 } as const;
 
 /**
@@ -296,7 +296,6 @@ export const PROTECTED_ROUTES = [
   ROUTES.STRATEGIES_AI_PREDICTION,
   ROUTES.STRATEGIES_PREDICTIONS,
   ROUTES.STRATEGIES_MID_MARKET,
-  ROUTES.STRATEGIES_SCALP,
   ROUTES.PORTFOLIO,
   ROUTES.TRADES,
   ROUTES.SETTINGS,

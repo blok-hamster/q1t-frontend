@@ -86,6 +86,7 @@ const DEFAULT_CONFIG: MarketConfig = {
   take_profit_enabled: false,
   take_profit_delta: 0.10,
   blocked_hours_utc: [],
+  reversal_fade_suppress_enabled: true,
 };
 
 function getTimeframeDefaults(marketType: string): Partial<MarketConfig> {
@@ -857,65 +858,6 @@ export function MarketConfigPanel({
                 )}
               </div>
 
-              {/* Hard-Floor Win Rate Gate */}
-              <div className="space-y-3 border-t border-border-primary/50 pt-3">
-                <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
-                  Win Rate Floor
-                </h4>
-
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-text-primary">Enable Win-Rate Floor</label>
-                  <Switch
-                    checked={(config.min_win_rate ?? 0) > 0}
-                    onChange={(checked) =>
-                      update('min_win_rate', checked ? 0.62 : 0)
-                    }
-                  />
-                </div>
-                <p className="text-xs text-text-tertiary">
-                  Once the market has enough daily trades, new real entries are soft-blocked while its daily
-                  win rate is below the floor. Trading auto-resumes once the win rate recovers above it.
-                </p>
-
-                {(config.min_win_rate ?? 0) > 0 && (
-                  <div className="space-y-2 pl-1 border-l-2 border-red-500/30 ml-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-medium text-text-secondary">Min Win Rate (%)</label>
-                      <span className="text-xs font-mono text-text-primary">
-                        {Math.round((config.min_win_rate ?? 0) * 100)}%
-                      </span>
-                    </div>
-                    <Slider
-                      min={40}
-                      max={80}
-                      step={1}
-                      value={Math.round((config.min_win_rate ?? 0) * 100)}
-                      onChange={(v) => update('min_win_rate', v / 100)}
-                      formatValue={(v) => `${v}%`}
-                    />
-                    <p className="text-xs text-text-tertiary">
-                      Block entries when daily WR drops below this. Lower = more aggressive protection; higher = tighter filter but blocks more trades.
-                    </p>
-
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-medium text-text-secondary">Min Trades to Apply</label>
-                      <span className="text-xs font-mono text-text-primary">{config.min_win_rate_trades ?? 25}</span>
-                    </div>
-                    <Slider
-                      min={5}
-                      max={100}
-                      step={5}
-                      value={config.min_win_rate_trades ?? 25}
-                      onChange={(v) => update('min_win_rate_trades', v)}
-                      formatValue={(v) => `${v}`}
-                    />
-                    <p className="text-xs text-text-tertiary">
-                      Minimum daily trade count before the floor takes effect (avoids triggering on tiny samples).
-                    </p>
-                  </div>
-                )}
-              </div>
-
               {/* Entry Filters */}
               <div className="space-y-3">
                 <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
@@ -969,6 +911,42 @@ export function MarketConfigPanel({
                     />
                   )}
                 </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-text-secondary">Min Relative Distance from Strike</label>
+                    <span className="text-xs font-mono text-text-primary">
+                      {(config.min_relative_price_distance ?? 0) > 0
+                        ? `${((config.min_relative_price_distance ?? 0) * 100).toFixed(2)}%`
+                        : 'off'}
+                    </span>
+                  </div>
+                  <Slider
+                    min={0}
+                    max={2}
+                    step={0.05}
+                    value={(config.min_relative_price_distance ?? 0) * 100}
+                    onChange={(v) => update('min_relative_price_distance', v / 100)}
+                    formatValue={(v) => `${(v).toFixed(0)}%`}
+                  />
+                  <p className="text-xs text-text-tertiary">
+                    Reject when the distance from strike is too small as a fraction of asset price (off = 0%).
+                    0.2% = 20% of 1%. Use this to avoid coin-flip entries on low-priced assets even when the
+                    absolute distance looks large.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-text-primary">Reversal-Fade Suppression</label>
+                  <Switch
+                    checked={config.reversal_fade_suppress_enabled ?? true}
+                    onChange={(checked) => update('reversal_fade_suppress_enabled', checked)}
+                  />
+                </div>
+                <p className="text-xs text-text-tertiary">
+                  Skips entering the opposite side of a market window you already won on that side
+                  (the flip has run ~61% WR vs 75% for repeating, systematically negative). Off disables this.
+                </p>
 
                 <div className="flex items-center justify-between">
                   <label className="text-xs text-text-secondary">MQS Filter</label>

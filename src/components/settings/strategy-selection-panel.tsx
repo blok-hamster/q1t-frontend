@@ -26,12 +26,6 @@ const STRATEGIES = [
     description: 'Trajectory slope consensus & momentum entry during 5-minute active windows',
     icon: TrendingUp,
   },
-  {
-    value: 'scalp',
-    label: 'Scalp Strategy',
-    description: 'Mean-reversion: buy cheap trailing side early, exit on TP/SL before resolution',
-    icon: ShieldCheck,
-  },
 ];
 
 interface Props {
@@ -54,8 +48,7 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
   }, [initialStrategy, marketConfigs]);
 
   const activeStrategies = strategy.active_strategies || [];
-  const showMidMarketMarkets = isAdmin &&
-    (activeStrategies.includes('mid_market') || activeStrategies.includes('scalp'));
+  const showMidMarketMarkets = isAdmin && activeStrategies.includes('mid_market');
 
   const handleStrategyToggle = async (value: string) => {
     const current = strategy.active_strategies || [];
@@ -119,26 +112,6 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
       );
     } catch (error) {
       toast.error('Failed to update mid-market availability');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Admin toggle to globally enable/disable a market for scalp strategy
-  const handleAdminScalpToggle = async (marketId: string, currentScalpEnabled: boolean) => {
-    setSaving(true);
-    try {
-      await settingsApi.updateMarketConfig(marketId, { scalp_enabled: !currentScalpEnabled });
-      setConfigs((prev) =>
-        prev.map((c) => (c.market_type === marketId ? { ...c, scalp_enabled: !currentScalpEnabled } : c))
-      );
-      toast.success(
-        !currentScalpEnabled
-          ? `Scalp ENABLED for ${marketId.toUpperCase()}`
-          : `Scalp DISABLED for ${marketId.toUpperCase()}`
-      );
-    } catch (error) {
-      toast.error('Failed to update scalp availability');
     } finally {
       setSaving(false);
     }
@@ -225,8 +198,8 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
                 </span>
                 <p className="text-xs text-[#8B949E] mt-0.5">
                   {isAdmin
-                    ? 'Enable or disable each market independently per strategy (Mid-Market / Scalp).'
-                    : 'Select which markets the mid-market strategy trades. Scalp markets are controlled by admin.'}
+                    ? 'Enable or disable each market for the mid-market strategy.'
+                    : 'Select which markets the mid-market strategy trades.'}
                 </p>
               </div>
             </div>
@@ -235,48 +208,33 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
               {SUPPORTED_MARKETS.map((m) => {
                 const config = configs.find((c) => c.market_type === m.id);
                 const isMidMarketEnabled = config?.enabled ?? true;
-                const isScalpEnabled = config?.scalp_enabled ?? true;
                 const isUserActive = strategy.mid_market_markets?.includes(m.id) ?? false;
 
                 if (isAdmin) {
-                  // Admin View: Per-strategy toggles
+                  // Admin View: Mid-market toggle
                   return (
                     <div
                       key={m.id}
                       className={cn(
                         'p-2.5 border rounded-xs bg-[#080A0C] flex flex-col gap-2',
-                        isMidMarketEnabled || isScalpEnabled ? 'border-[#20B2AA]/40' : 'border-[#1B2026] opacity-60'
+                        isMidMarketEnabled ? 'border-[#20B2AA]/40' : 'border-[#1B2026] opacity-60'
                       )}
                     >
                       <span className="font-mono text-xs font-bold text-[#E1E4E8]">
                         {m.label}
                       </span>
-                      <div className="flex flex-col gap-1.5">
-                        <button
-                          onClick={() => handleAdminMidMarketToggle(m.id, isMidMarketEnabled)}
-                          disabled={saving}
-                          className={cn(
-                            'w-full py-1 text-[9px] font-bold uppercase border transition-colors cursor-pointer rounded-xs',
-                            isMidMarketEnabled
-                              ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/30 hover:bg-[#E55353]/10 hover:text-[#E55353] hover:border-[#E55353]/30'
-                              : 'bg-[#E55353]/10 text-[#E55353] border-[#E55353]/30 hover:bg-[#20B2AA]/10 hover:text-[#20B2AA] hover:border-[#20B2AA]/30'
-                          )}
-                        >
-                          MID: {isMidMarketEnabled ? 'ON' : 'OFF'}
-                        </button>
-                        <button
-                          onClick={() => handleAdminScalpToggle(m.id, isScalpEnabled)}
-                          disabled={saving}
-                          className={cn(
-                            'w-full py-1 text-[9px] font-bold uppercase border transition-colors cursor-pointer rounded-xs',
-                            isScalpEnabled
-                              ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/30 hover:bg-[#E55353]/10 hover:text-[#E55353] hover:border-[#E55353]/30'
-                              : 'bg-[#E55353]/10 text-[#E55353] border-[#E55353]/30 hover:bg-[#20B2AA]/10 hover:text-[#20B2AA] hover:border-[#20B2AA]/30'
-                          )}
-                        >
-                          SCALP: {isScalpEnabled ? 'ON' : 'OFF'}
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleAdminMidMarketToggle(m.id, isMidMarketEnabled)}
+                        disabled={saving}
+                        className={cn(
+                          'w-full py-1 text-[9px] font-bold uppercase border transition-colors cursor-pointer rounded-xs',
+                          isMidMarketEnabled
+                            ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/30 hover:bg-[#E55353]/10 hover:text-[#E55353] hover:border-[#E55353]/30'
+                            : 'bg-[#E55353]/10 text-[#E55353] border-[#E55353]/30 hover:bg-[#20B2AA]/10 hover:text-[#20B2AA] hover:border-[#20B2AA]/30'
+                        )}
+                      >
+                        MID: {isMidMarketEnabled ? 'ON' : 'OFF'}
+                      </button>
                     </div>
                   );
                 }

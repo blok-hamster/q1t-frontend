@@ -137,23 +137,6 @@ export interface MarketConfig {
   // FOK limit price buffer
   fok_buffer_cents?: number;
   sell_buffer_cents?: number;
-  // Scalp strategy
-  scalp_enabled?: boolean;
-  scalp_max_entry?: number;
-  scalp_min_entry?: number;
-  scalp_tp_delta?: number;
-  scalp_sl_delta?: number;
-  scalp_max_hold_seconds?: number;
-  scalp_num_shares?: number;
-  scalp_watch_start?: number;
-  scalp_watch_end?: number;
-  scalp_mqs_enabled?: boolean;
-  scalp_mqs_max?: number;
-  // Scalp dynamic stop
-  scalp_dynamic_stop_enabled?: boolean;
-  scalp_sl_pct?: number;
-  scalp_min_sl_delta?: number;
-  scalp_min_rr?: number;
   blocked_hours_utc?: number[];
   stop_loss_hard_floor_cents?: number;
   time_exit_seconds?: number;
@@ -170,9 +153,10 @@ export interface MarketConfig {
   streak_min_wins?: number;
   streak_resume_wins?: number;
   streak_probe_shares?: number;
-  // Hard-floor win-rate gate: block entries while daily WR < min_win_rate after min_win_rate_trades
-  min_win_rate?: number;
-  min_win_rate_trades?: number;
+  // Relative price distance from strike (as a fraction of asset price)
+  min_relative_price_distance?: number;
+  // Reversal-fade suppression: skip entering the opposite side of a window the user already won.
+  reversal_fade_suppress_enabled?: boolean;
 }
 
 export interface AiV2Config {

@@ -16,8 +16,7 @@ export function MidMarketRiskPanel({
   totalBalance = 25000,
   activeExposures = [
     { name: 'BTC-5M Mid-Market', amount: 1250, pct: 5.0 },
-    { name: 'ETH-5M Scalp', amount: 625, pct: 2.5 },
-    { name: 'SOL-5M Retrace', amount: 375, pct: 1.5 },
+    { name: 'SOL-5M Mid-Market', amount: 375, pct: 1.5 },
   ],
 }: MidMarketRiskPanelProps) {
   const maxBetUsd = totalBalance * maxBetPct;

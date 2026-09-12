@@ -36,7 +36,7 @@ function isDistanceSignificant(asset: string, value: number): boolean {
 interface PositionInfo {
   direction: string;
   entry_price: number;
-  strategy: 'mid_market' | 'scalp' | 'ai_prediction_v2';
+  strategy: 'mid_market' | 'ai_prediction_v2';
   num_shares?: number;
   stop_price?: number;
   take_profit_price?: number;
@@ -101,9 +101,8 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [midData, scalpData, tradesData, strategyData, marketConfigData] = await Promise.all([
+        const [midData, tradesData, strategyData, marketConfigData] = await Promise.all([
           executionApi.getMidMarketStats(),
-          executionApi.getScalpStats(),
           executionApi.getTrades(),
           settingsApi.getStrategySelection(),
           settingsApi.getMarketConfigs(),
@@ -163,10 +162,10 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
         });
 
         setMidStats({
-          trades: (midData.daily_trades ?? 0) + (scalpData.daily_trades ?? 0),
-          wins: (midData.daily_wins ?? 0) + (scalpData.daily_wins ?? 0),
-          losses: (midData.daily_losses ?? 0) + (scalpData.daily_losses ?? 0),
-          pnl: (midData.daily_pnl ?? 0) + (scalpData.daily_pnl ?? 0),
+          trades: midData.daily_trades ?? 0,
+          wins: midData.daily_wins ?? 0,
+          losses: midData.daily_losses ?? 0,
+          pnl: midData.daily_pnl ?? 0,
         });
       } catch {}
     };
@@ -204,12 +203,12 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
     };
 
     const refetchMidStats = () => {
-      Promise.all([executionApi.getMidMarketStats(), executionApi.getScalpStats()]).then(([mid, scalp]) => {
+      executionApi.getMidMarketStats().then((mid) => {
         setMidStats({
-          trades: (mid.daily_trades ?? 0) + (scalp.daily_trades ?? 0),
-          wins: (mid.daily_wins ?? 0) + (scalp.daily_wins ?? 0),
-          losses: (mid.daily_losses ?? 0) + (scalp.daily_losses ?? 0),
-          pnl: (mid.daily_pnl ?? 0) + (scalp.daily_pnl ?? 0),
+          trades: mid.daily_trades ?? 0,
+          wins: mid.daily_wins ?? 0,
+          losses: mid.daily_losses ?? 0,
+          pnl: mid.daily_pnl ?? 0,
         });
       }).catch(() => {});
     };
@@ -250,14 +249,12 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
     socket.on('mid_market_entry', midEntryHandler);
     socket.on('mid_market_stop', midExitHandler);
     socket.on('mid_market_resolved', midExitHandler);
-    socket.on('scalp_exit', refetchMidStats);
 
     return () => {
       socket.off('mid_market_update', midUpdateHandler);
       socket.off('mid_market_entry', midEntryHandler);
       socket.off('mid_market_stop', midExitHandler);
       socket.off('mid_market_resolved', midExitHandler);
-      socket.off('scalp_exit', refetchMidStats);
     };
   }, [socket]);
 
@@ -377,7 +374,7 @@ function MarketCard({ market, state }: { market: typeof ALL_MARKETS[0]; state: M
 
   return (
     <Link
-      href={`/strategies/mid-market?market=${market.id}${pos?.strategy === 'scalp' ? '&strategy=scalp' : ''}`}
+      href={`/strategies/mid-market?market=${market.id}`}
       className="block group"
     >
       <div

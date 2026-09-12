@@ -21,6 +21,7 @@ import {
   Send,
   ArrowUp,
   ArrowDown,
+  Settings,
 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
@@ -68,7 +69,13 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          <Link href={ROUTES.ADMIN_MARKET_CONFIGS_PAGE}>
+            <Button variant="outlined" size="sm">
+              <Settings className="h-4 w-4 mr-2" />
+              Market Configs
+            </Button>
+          </Link>
           <Link href={ROUTES.ADMIN_INVITES}>
             <Button variant="outlined" size="sm">
               <Send className="h-4 w-4 mr-2" />

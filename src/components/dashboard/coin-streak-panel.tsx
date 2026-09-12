@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSocket } from '@/context/socket-context';
 import { executionApi } from '@/lib/api';
-import { TrendingUp, TrendingDown, Radio, FlaskConical } from 'lucide-react';
+import { TrendingUp, TrendingDown, Radio, FlaskConical, ShieldAlert } from 'lucide-react';
 import type { PositionInfo, CoinStreakState } from '@/lib/api/execution';
 import { cn } from '@/lib/utils/cn';
 
@@ -52,7 +52,14 @@ export function CoinStreakPanel() {
         const nextStreaks: Record<string, CoinStreakState> = {};
         for (const id of MARKET_ORDER) {
           if (stats.streaks?.[id]) {
-            nextStreaks[id] = { streak: stats.streaks[id].streak || [], paused: !!stats.streaks[id].paused };
+            nextStreaks[id] = {
+              streak: stats.streaks[id].streak || [],
+              paused: !!stats.streaks[id].paused,
+              breaker_armed: !!stats.streaks[id].breaker_armed,
+              auto_scale_mode: stats.streaks[id].auto_scale_mode,
+              auto_scale_stats: stats.streaks[id].auto_scale_stats,
+              auto_scale_preview: stats.streaks[id].auto_scale_preview,
+            };
           }
         }
         setStreaks(nextStreaks);
@@ -79,7 +86,37 @@ export function CoinStreakPanel() {
       setLive(true);
       setStreaks((prev) => ({
         ...prev,
-        [mt]: { streak: Array.isArray(data.streak) ? data.streak : [], paused: data.paused === true },
+        [mt]: {
+          ...(prev[mt] || { streak: [], paused: false }),
+          streak: Array.isArray(data.streak) ? data.streak : [],
+          paused: data.paused === true,
+          breaker_armed: prev[mt]?.breaker_armed,
+        },
+      }));
+    };
+
+    const onBreaker = (data: any) => {
+      const mt = data?.market_type;
+      if (!mt || !MARKET_ORDER.includes(mt)) return;
+      setLive(true);
+      setStreaks((prev) => ({
+        ...prev,
+        [mt]: { ...(prev[mt] || { streak: [], paused: false }), breaker_armed: data.armed === true },
+      }));
+    };
+
+    const onAutoScale = (data: any) => {
+      const mt = data?.market_type;
+      if (!mt || !MARKET_ORDER.includes(mt)) return;
+      setLive(true);
+      setStreaks((prev) => ({
+        ...prev,
+        [mt]: {
+          ...(prev[mt] || { streak: [], paused: false }),
+          auto_scale_mode: data.mode === 'full' || data.mode === 'listen' ? data.mode : 'unknown',
+          auto_scale_stats: prev[mt]?.auto_scale_stats,
+          auto_scale_preview: data.preview ?? prev[mt]?.auto_scale_preview,
+        },
       }));
     };
 
@@ -125,10 +162,14 @@ export function CoinStreakPanel() {
     };
 
     socket.on('mid_market_streak', onStreak);
+    socket.on('mid_market_breaker', onBreaker);
+    socket.on('mid_market_auto_scale', onAutoScale);
     socket.on('mid_market_probe_entry', onProbeEntry);
     socket.on('mid_market_probe_close', onProbeClose);
     return () => {
       socket.off('mid_market_streak', onStreak);
+      socket.off('mid_market_breaker', onBreaker);
+      socket.off('mid_market_auto_scale', onAutoScale);
       socket.off('mid_market_probe_entry', onProbeEntry);
       socket.off('mid_market_probe_close', onProbeClose);
     };
@@ -159,19 +200,72 @@ export function CoinStreakPanel() {
           const s = streaksRef.current[m.id];
           const streak = s?.streak || [];
           const paused = s?.paused ?? false;
+          const breakerArmed = s?.breaker_armed ?? false;
+          const autoScaleMode = s?.auto_scale_mode;
+          const autoScaleStats = s?.auto_scale_stats;
+          const autoScalePreview = s?.auto_scale_preview;
           const probe = probesRef.current[m.id];
           const color = COIN_COLORS[m.asset] || '#8B949E';
+
+          const verdict = (() => {
+            if (!autoScalePreview) return null;
+            const t = autoScalePreview.thresholds || {};
+            const pending = autoScalePreview.would_flip_after_hold;
+            const willFlip = autoScalePreview.would_flip_to;
+            const holdS = autoScalePreview.hold_remaining_seconds || 0;
+            if (pending === 'full') {
+              const p = autoScalePreview.promote;
+              const unmet = p?.met === false && p.unmet?.length ? ` · ${p.unmet[0]}` : '';
+              const hold = holdS > 0 ? `${Math.ceil(holdS / 60)}m` : '';
+              return {
+                tone: willFlip ? 'teal' : 'amber',
+                text: `→ full${hold ? ` ${hold}` : ''}${unmet}`,
+                title: `Promote: ≥${t.promote?.min_trades ?? 3} trades/${t.promote?.window_hours ?? 4}h, WR≥${Math.round((t.promote?.wr ?? 0.67) * 100)}%, stops≤${Math.round((t.promote?.stop_rate ?? 0.33) * 100)}%, pnl>0 · pending=${pending}${hold ? ' · hold' : ''}`,
+              };
+            }
+            if (pending === 'listen') {
+              const d = autoScalePreview.demote;
+              const unmet = d?.unmet?.length ? ` · ${d.unmet[0]}` : '';
+              const hold = holdS > 0 ? `${Math.ceil(holdS / 60)}m` : '';
+              return {
+                tone: willFlip ? 'red' : 'amber',
+                text: `→ listen${hold ? ` ${hold}` : ''}${unmet}`,
+                title: `Demote: WR<${Math.round((t.demote?.wr ?? 0.65) * 100)}% or stops>${Math.round((t.demote?.stop_rate ?? 0.36) * 100)}% (${t.demote?.window_hours ?? 12}h) · pending=${pending}${hold ? ' · hold' : ''}`,
+              };
+            }
+            if (autoScaleMode === 'listen') {
+              const p = autoScalePreview.promote;
+              const unmet = p && p.met === false && p.unmet?.length ? ` · ${p.unmet[0]}` : '';
+              return {
+                tone: 'dim',
+                text: `listening${unmet}`,
+                title: `Promote: ≥${t.promote?.min_trades ?? 3} trades/${t.promote?.window_hours ?? 4}h, WR≥${Math.round((t.promote?.wr ?? 0.67) * 100)}%, stops≤${Math.round((t.promote?.stop_rate ?? 0.33) * 100)}%, pnl>0`,
+              };
+            }
+            if (autoScaleMode === 'full') {
+              const d = autoScalePreview.demote;
+              const safe = d && d.triggered === false;
+              return {
+                tone: safe ? 'teal' : 'red',
+                text: safe ? 'safely full' : `· ${d?.unmet?.[0] ?? 'demoting'}`,
+                title: `Demote: WR<${Math.round((t.demote?.wr ?? 0.65) * 100)}% or stops>${Math.round((t.demote?.stop_rate ?? 0.36) * 100)}% (${t.demote?.window_hours ?? 12}h)`,
+              };
+            }
+            return null;
+          })();
 
           return (
             <div
               key={m.id}
               className={cn(
                 'border px-2 py-1.5 min-h-[58px]',
-                paused
-                  ? 'border-[#E55353]/40 bg-[#E55353]/5'
-                  : probe
-                    ? 'border-[#20B2AA]/40 bg-[#20B2AA]/5'
-                    : 'border-[#1B2026] bg-[#080A0C]'
+                breakerArmed
+                  ? 'border-[#E55353] bg-[#E55353]/10'
+                  : paused
+                    ? 'border-[#E55353]/40 bg-[#E55353]/5'
+                    : probe
+                      ? 'border-[#20B2AA]/40 bg-[#20B2AA]/5'
+                      : 'border-[#1B2026] bg-[#080A0C]'
               )}
             >
               <div className="flex items-center justify-between gap-1">
@@ -204,7 +298,11 @@ export function CoinStreakPanel() {
                 ) : (
                   <span className="text-[9px] text-[#586069] uppercase">no probe</span>
                 )}
-                {paused ? (
+                {breakerArmed ? (
+                  <span className="flex items-center gap-1 text-[9px] font-bold uppercase text-[#E55353] border border-[#E55353]/50 bg-[#E55353]/15 px-1 py-0.5 rounded-xs">
+                    <ShieldAlert className="h-2.5 w-2.5" /> breaker
+                  </span>
+                ) : paused ? (
                   <span className="text-[9px] font-bold uppercase text-[#E55353] border border-[#E55353]/30 bg-[#E55353]/10 px-1 py-0.5 rounded-xs">
                     paused
                   </span>
@@ -213,7 +311,40 @@ export function CoinStreakPanel() {
                     live
                   </span>
                 )}
+                {autoScaleMode === 'listen' && (
+                  <span
+                    title={autoScaleStats ? `${autoScaleStats.n} trades · WR ${((autoScaleStats.wr ?? 0) * 100).toFixed(0)}% · ${((autoScaleStats.stopRate ?? 0) * 100).toFixed(0)}% stops · $${(autoScaleStats.pnl ?? 0).toFixed(2)}` : undefined}
+                    className="flex items-center gap-1 text-[9px] font-bold uppercase text-[#D8A657] border border-[#D8A657]/50 bg-[#D8A657]/15 px-1 py-0.5 rounded-xs"
+                  >
+                    1-share
+                  </span>
+                )}
+                {autoScaleMode === 'full' && (
+                  <span
+                    title={autoScaleStats ? `${autoScaleStats.n} trades · WR ${((autoScaleStats.wr ?? 0) * 100).toFixed(0)}% · ${((autoScaleStats.stopRate ?? 0) * 100).toFixed(0)}% stops · $${(autoScaleStats.pnl ?? 0).toFixed(2)}` : undefined}
+                    className="flex items-center gap-1 text-[9px] font-bold uppercase text-[#20B2AA] border border-[#20B2AA]/50 bg-[#20B2AA]/15 px-1 py-0.5 rounded-xs"
+                  >
+                    full
+                  </span>
+                )}
               </div>
+
+              {verdict && (
+                <div className="mt-1 leading-tight">
+                  <span
+                    title={verdict.title}
+                    className={cn(
+                      'block truncate text-[8px] font-semibold uppercase tracking-wide',
+                      verdict.tone === 'teal' && 'text-[#20B2AA]',
+                      verdict.tone === 'amber' && 'text-[#D8A657]',
+                      verdict.tone === 'red' && 'text-[#E55353]',
+                      verdict.tone === 'dim' && 'text-[#586069]'
+                    )}
+                  >
+                    {verdict.text}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}
@@ -232,6 +363,15 @@ export function CoinStreakPanel() {
           </span>
           <span className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-[#E55353]" /> paused
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#E55353]" /> breaker
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#D8A657]" /> 1-share
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#20B2AA]" /> full size
           </span>
         </div>
       </div>

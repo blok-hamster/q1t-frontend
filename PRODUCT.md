@@ -34,7 +34,7 @@ The only tool that closes the loop from BTC structural signal → Polymarket pre
 - Prediction history ledger with direction, confidence, strike price, target, and outcome
 - Paper trading mode with configurable balance
 - 2FA authentication and private key management for Polymarket execution
-- Mid-market strategy is the active profitable signal; scalp strategy is secondary
+- Mid-market strategy is the active profitable signal
 - AI prediction layer (CNN-based) is under active development and not yet primary
 
 ## Brand Commitments

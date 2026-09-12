@@ -19,9 +19,49 @@ export interface PositionInfo {
   take_profit_price?: number;
 }
 
+export interface AutoScaleStats {
+  n?: number;
+  wr?: number;
+  stopRate?: number;
+  pnl?: number;
+}
+
+export type AutoScaleMode = 'full' | 'listen';
+
+export interface AutoScalePreview {
+  would_flip_to?: 'full' | 'listen' | null;
+  would_flip_after_hold?: 'full' | 'listen' | null;
+  hold_remaining_seconds?: number;
+  thresholds?: {
+    promote?: { window_hours?: number; min_trades?: number; wr?: number; stop_rate?: number; pnl_positive?: boolean };
+    demote?: { window_hours?: number; wr?: number; stop_rate?: number };
+  };
+  promote?: {
+    window_hours?: number;
+    n?: number;
+    wr?: number;
+    stop_rate?: number;
+    pnl?: number;
+    met?: boolean;
+    unmet?: string[];
+  };
+  demote?: {
+    n?: number;
+    wr?: number;
+    stop_rate?: number;
+    pnl?: number;
+    triggered?: boolean;
+    unmet?: string[];
+  };
+}
+
 export interface CoinStreakState {
   streak: string[];
   paused: boolean;
+  breaker_armed?: boolean;
+  auto_scale_mode?: AutoScaleMode | 'unknown';
+  auto_scale_stats?: AutoScaleStats;
+  auto_scale_preview?: AutoScalePreview;
 }
 
 export interface MidMarketDailyStats {
@@ -32,24 +72,6 @@ export interface MidMarketDailyStats {
   per_market: Record<string, MarketStats>;
   positions: Record<string, PositionInfo[]>;
   streaks?: Record<string, CoinStreakState>;
-}
-
-export interface ScalpPositionInfo {
-  direction: string;
-  entry_price: number;
-  num_shares?: number;
-  take_profit_price?: number;
-  stop_loss_price?: number;
-  max_hold_until?: number;
-}
-
-export interface ScalpDailyStats {
-  daily_trades: number;
-  daily_wins: number;
-  daily_losses: number;
-  daily_pnl: number;
-  per_market: Record<string, MarketStats>;
-  positions: Record<string, ScalpPositionInfo>;
 }
 
 /**
@@ -73,12 +95,5 @@ export const executionApi = {
    */
   getMidMarketStats: async (): Promise<MidMarketDailyStats> => {
     return api.get<MidMarketDailyStats>(API_ENDPOINTS.EXECUTION_MID_MARKET_STATS);
-  },
-
-  /**
-   * Get scalp strategy daily stats
-   */
-  getScalpStats: async (): Promise<ScalpDailyStats> => {
-    return api.get<ScalpDailyStats>(API_ENDPOINTS.EXECUTION_SCALP_STATS);
   },
 };

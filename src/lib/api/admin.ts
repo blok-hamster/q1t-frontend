@@ -234,4 +234,12 @@ export const adminApi = {
   updateMarketConfig: async (marketType: string, updates: any): Promise<{ message: string; config: any }> => {
     return api.put(`${API_ENDPOINTS.ADMIN_MARKET_CONFIGS}/${marketType}`, updates);
   },
+
+  bulkApplyMarketConfigs: async (configs: any[]): Promise<{
+    message: string;
+    results: { market_type: string; mode: 'created' | 'updated' | 'unchanged' | 'skipped'; fields: number }[];
+    totals: { created: number; updated: number; unchanged: number; skipped: number };
+  }> => {
+    return api.post(API_ENDPOINTS.ADMIN_MARKET_CONFIGS_BULK, { configs });
+  },
 };
