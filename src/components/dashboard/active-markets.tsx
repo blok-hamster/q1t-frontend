@@ -183,6 +183,23 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
       }));
     };
 
+    const tpHandler = (data: any) => {
+      const mt = data.market_type || 'btc-5m';
+      if (!marketsRef.current[mt]) return;
+      setMarkets(prev => ({
+        ...prev,
+        [mt]: {
+          ...prev[mt],
+          position: null,
+          dailyTrades: data.daily_trades ?? prev[mt].dailyTrades,
+          dailyWins: data.daily_wins ?? prev[mt].dailyWins + 1,
+          dailyLosses: data.daily_losses ?? prev[mt].dailyLosses,
+          dailyPnl: data.daily_pnl != null ? Math.round(data.daily_pnl * 100) / 100 : prev[mt].dailyPnl,
+          lastEvent: Date.now(),
+        }
+      }));
+    };
+
     const resolvedHandler = (data: any) => {
       const mt = data.market_type || 'btc-5m';
       if (!marketsRef.current[mt]) return;
@@ -202,12 +219,14 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
 
     socket.on('mid_market_entry', entryHandler);
     socket.on('mid_market_stop', stopHandler);
+    socket.on('mid_market_tp_hit', tpHandler);
     socket.on('mid_market_resolved', resolvedHandler);
 
     return () => {
       socket.off('mid_market_update', handler);
       socket.off('mid_market_entry', entryHandler);
       socket.off('mid_market_stop', stopHandler);
+      socket.off('mid_market_tp_hit', tpHandler);
       socket.off('mid_market_resolved', resolvedHandler);
     };
   }, [socket]);

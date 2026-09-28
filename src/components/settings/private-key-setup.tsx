@@ -17,6 +17,7 @@ export function PrivateKeySetup({ twoFactorEnabled, onUpdate }: PrivateKeySetupP
   const [walletType, setWalletType] = useState<'eoa' | 'proxy'>('proxy');
   const [fundingAddress, setFundingAddress] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [status, setStatus] = useState<{
     hasPrivateKey: boolean;
     wallet_address?: string;
@@ -71,6 +72,7 @@ export function PrivateKeySetup({ twoFactorEnabled, onUpdate }: PrivateKeySetupP
       toast.success(data.message || 'Wallet & Private key stored securely in Vault');
       setPrivateKey('');
       setTotpCode('');
+      setShowUpdateForm(false);
       await fetchStatus();
       onUpdate?.();
     } catch (error: any) {
@@ -117,13 +119,22 @@ export function PrivateKeySetup({ twoFactorEnabled, onUpdate }: PrivateKeySetupP
       </div>
 
       <div className="p-4 space-y-4 font-mono text-xs">
-        {status.hasPrivateKey ? (
-          <div className="p-3 bg-[#20B2AA]/10 border border-[#20B2AA]/30 space-y-2 rounded-xs">
-            <div className="flex items-center gap-2 text-[#20B2AA] font-bold">
-              <CheckCircle2 className="h-4 w-4" />
-              <span>WALLET SECURELY STORED IN HASHICORP VAULT</span>
+        {status.hasPrivateKey && !showUpdateForm ? (
+          <div className="p-3 bg-[#20B2AA]/10 border border-[#20B2AA]/30 space-y-3 rounded-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[#20B2AA] font-bold">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>WALLET SECURELY STORED IN HASHICORP VAULT</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowUpdateForm(true)}
+                className="text-[10px] font-bold uppercase px-2 py-1 bg-[#20B2AA]/20 text-[#20B2AA] hover:bg-[#20B2AA]/30 border border-[#20B2AA]/40 cursor-pointer transition-colors rounded-xs"
+              >
+                Update / Replace Key
+              </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] pt-1 border-t border-[#20B2AA]/20">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] pt-2 border-t border-[#20B2AA]/20">
               <div>
                 <span className="text-[#586069] font-bold uppercase block">WALLET MODE:</span>
                 <span className="text-[#E1E4E8] font-bold uppercase">
@@ -150,6 +161,18 @@ export function PrivateKeySetup({ twoFactorEnabled, onUpdate }: PrivateKeySetupP
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
+            {status.hasPrivateKey && (
+              <div className="flex items-center justify-between p-2 bg-[#16191E] border border-[#1B2026] text-[11px]">
+                <span className="text-[#8B949E]">Updating key will overwrite existing Vault entry</span>
+                <button
+                  type="button"
+                  onClick={() => setShowUpdateForm(false)}
+                  className="text-[10px] text-[#586069] hover:text-[#E1E4E8] uppercase font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
             {/* Wallet Mode Selection */}
             <div className="space-y-1.5">
               <label className="text-[10px] text-[#586069] font-bold uppercase tracking-[0.12em] block">

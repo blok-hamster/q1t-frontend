@@ -112,6 +112,7 @@ export default function DashboardPage() {
     socket.on('paper_balance_update', balanceHandler);
     socket.on('mid_market_entry', refetchRecent);
     socket.on('mid_market_stop', refetchRecent);
+    socket.on('mid_market_tp_hit', refetchRecent);
     socket.on('mid_market_resolved', refetchRecent);
 
     return () => {
@@ -120,6 +121,7 @@ export default function DashboardPage() {
       socket.off('paper_balance_update', balanceHandler);
       socket.off('mid_market_entry', refetchRecent);
       socket.off('mid_market_stop', refetchRecent);
+      socket.off('mid_market_tp_hit', refetchRecent);
       socket.off('mid_market_resolved', refetchRecent);
     };
   }, [socket]);

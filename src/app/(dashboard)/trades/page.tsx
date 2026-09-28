@@ -78,12 +78,14 @@ export default function TradesPage() {
     };
     socket.on('mid_market_entry', refetchOnEvent);
     socket.on('mid_market_stop', refetchOnEvent);
+    socket.on('mid_market_tp_hit', refetchOnEvent);
     socket.on('mid_market_resolved', refetchOnEvent);
 
     return () => {
       socket.off('execution_update');
       socket.off('mid_market_entry', refetchOnEvent);
       socket.off('mid_market_stop', refetchOnEvent);
+      socket.off('mid_market_tp_hit', refetchOnEvent);
       socket.off('mid_market_resolved', refetchOnEvent);
     };
   }, [socket, fetchTrades]);

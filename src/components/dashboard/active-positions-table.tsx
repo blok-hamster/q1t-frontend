@@ -248,12 +248,14 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
     socket.on('mid_market_update', midUpdateHandler);
     socket.on('mid_market_entry', midEntryHandler);
     socket.on('mid_market_stop', midExitHandler);
+    socket.on('mid_market_tp_hit', midExitHandler);
     socket.on('mid_market_resolved', midExitHandler);
 
     return () => {
       socket.off('mid_market_update', midUpdateHandler);
       socket.off('mid_market_entry', midEntryHandler);
       socket.off('mid_market_stop', midExitHandler);
+      socket.off('mid_market_tp_hit', midExitHandler);
       socket.off('mid_market_resolved', midExitHandler);
     };
   }, [socket]);

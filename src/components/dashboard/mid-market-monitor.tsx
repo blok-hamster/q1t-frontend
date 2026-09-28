@@ -218,6 +218,7 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
 
     socket.on('mid_market_entry', entryHandler);
     socket.on('mid_market_stop', stopHandler);
+    socket.on('mid_market_tp_hit', stopHandler);
     socket.on('mid_market_resolved', resolvedHandler);
     socket.on('mid_market_retrace_watching', retraceWatchingHandler);
     socket.on('mid_market_limit_expired', retraceExpiredHandler);
@@ -226,6 +227,7 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({ enabled, market
       socket.off('mid_market_update', handler);
       socket.off('mid_market_entry', entryHandler);
       socket.off('mid_market_stop', stopHandler);
+      socket.off('mid_market_tp_hit', stopHandler);
       socket.off('mid_market_resolved', resolvedHandler);
       socket.off('mid_market_retrace_watching', retraceWatchingHandler);
       socket.off('mid_market_limit_expired', retraceExpiredHandler);
