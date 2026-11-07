@@ -39,8 +39,9 @@ interface PositionInfo {
   strategy: 'mid_market' | 'ai_prediction_v2';
   num_shares?: number;
   stop_price?: number;
-  take_profit_price?: number;
-  rr_ratio?: number;
+  probe?: boolean;
+  fair_value_at_entry?: number;
+  fair_value_edge_at_entry?: number;
 }
 
 function deriveMarketType(slug: string): string | null {
@@ -57,7 +58,8 @@ interface MarketState {
   windowEndTs: number;
   position: PositionInfo | null;
   lastEvent: number;
-  mqsScore: number;
+  bestEdge: number | null;
+  minFvEdge: number;
 }
 
 function emptyState(): MarketState {
@@ -69,7 +71,8 @@ function emptyState(): MarketState {
     windowEndTs: 0,
     position: null,
     lastEvent: 0,
-    mqsScore: 0,
+    bestEdge: null,
+    minFvEdge: 0.04,
   };
 }
 
@@ -131,6 +134,10 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
                   entry_price: midPos.entry_price,
                   strategy: 'mid_market',
                   num_shares: midPos.num_shares,
+                  stop_price: midPos.stop_loss_price,
+                  probe: midPos.probe === true,
+                  fair_value_at_entry: midPos.fair_value_at_entry,
+                  fair_value_edge_at_entry: midPos.fair_value_edge_at_entry,
                 },
                 lastEvent: Date.now(),
               };
@@ -187,6 +194,7 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
           updated.position = null;
           updated.upPrice = null;
           updated.downPrice = null;
+          updated.bestEdge = null;
           return { ...prev, [mt]: updated };
         }
 
@@ -196,7 +204,11 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
         if (data.price_distance != null) updated.priceDistance = Math.round(data.price_distance * 10) / 10;
         if (data.window_end_ts && data.window_end_ts > 0) updated.windowEndTs = data.window_end_ts;
         if (data.type === 'stop_sell') updated.position = null;
-        if ((data as any).mqs_score != null) updated.mqsScore = Math.round((data as any).mqs_score * 100) / 100;
+        if (data.min_fv_edge != null) updated.minFvEdge = data.min_fv_edge;
+        if (data.fv_edge_up != null || data.fv_edge_down != null) {
+          const edges = [data.fv_edge_up, data.fv_edge_down].filter((e): e is number => e != null);
+          updated.bestEdge = edges.length > 0 ? Math.max(...edges) : null;
+        }
 
         return { ...prev, [mt]: updated };
       });
@@ -227,7 +239,9 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
             strategy: 'mid_market',
             num_shares: data.num_shares,
             stop_price: data.stop_price,
-            rr_ratio: data.rr_ratio,
+            probe: data.probe === true,
+            fair_value_at_entry: data.fair_value,
+            fair_value_edge_at_entry: data.fair_value_edge,
           },
           lastEvent: Date.now(),
         }
@@ -248,14 +262,12 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
     socket.on('mid_market_update', midUpdateHandler);
     socket.on('mid_market_entry', midEntryHandler);
     socket.on('mid_market_stop', midExitHandler);
-    socket.on('mid_market_tp_hit', midExitHandler);
     socket.on('mid_market_resolved', midExitHandler);
 
     return () => {
       socket.off('mid_market_update', midUpdateHandler);
       socket.off('mid_market_entry', midEntryHandler);
       socket.off('mid_market_stop', midExitHandler);
-      socket.off('mid_market_tp_hit', midExitHandler);
       socket.off('mid_market_resolved', midExitHandler);
     };
   }, [socket]);
@@ -398,7 +410,7 @@ function MarketCard({ market, state }: { market: typeof ALL_MARKETS[0]; state: M
             }`}
           >
             <div className="flex items-center gap-1.5">
-              <Flame className="h-4 w-4 animate-bounce" />
+              <Flame className="h-4 w-4" aria-hidden="true" />
               <span>
                 OPEN POSITION: {pos.direction === 'UP' ? 'LONG (YES)' : 'SHORT (NO)'}
               </span>
@@ -468,7 +480,7 @@ function MarketCard({ market, state }: { market: typeof ALL_MARKETS[0]; state: M
           </div>
         </div>
 
-        {/* MQS Score & Strike Row */}
+        {/* Fair-Value Edge & Strike Row */}
         <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-[#1B2026]/40 text-[#8B949E]">
           <div>
             {state.strikePrice != null ? (
@@ -480,15 +492,17 @@ function MarketCard({ market, state }: { market: typeof ALL_MARKETS[0]; state: M
             )}
           </div>
 
-          {state.mqsScore > 0 && (
+          {state.bestEdge != null && (
             <span
-              className={`font-bold px-1.5 py-0.5 rounded-xs border ${
-                state.mqsScore >= 0.6
+              className={`font-bold px-1.5 py-0.5 rounded-xs border tabular-nums ${
+                state.bestEdge >= state.minFvEdge
                   ? 'bg-[#20B2AA]/20 text-[#20B2AA] border-[#20B2AA]/40'
-                  : 'bg-[#D99B00]/20 text-[#D99B00] border-[#D99B00]/40'
+                  : state.bestEdge > 0
+                  ? 'bg-[#16191E] text-[#E1E4E8] border-[#1B2026]'
+                  : 'bg-[#16191E]/60 text-[#586069] border-[#1B2026]/60'
               }`}
             >
-              {(state.mqsScore * 100).toFixed(0)}% MQS
+              {state.bestEdge >= 0 ? '+' : ''}{(state.bestEdge * 100).toFixed(1)}¢ EDGE
             </span>
           )}
         </div>
@@ -498,9 +512,13 @@ function MarketCard({ market, state }: { market: typeof ALL_MARKETS[0]; state: M
           <div className="pt-1.5 border-t border-[#1B2026]/80 flex items-center justify-between text-[10px] tabular-nums">
             <span className="text-[#8B949E]">
               {pos.num_shares ? `${pos.num_shares} SHARES` : 'MID-MARKET'}
+              {pos.probe ? ' · PROBE' : ''}
+              {pos.fair_value_edge_at_entry != null
+                ? ` · +${(pos.fair_value_edge_at_entry * 100).toFixed(1)}¢`
+                : ''}
             </span>
-            {pos.stop_price && (
-              <span className="text-[#E55353] font-bold">SL: ${pos.stop_price.toFixed(2)}</span>
+            {pos.stop_price != null && (
+              <span className="text-[#E55353] font-bold">FV SL &le;${pos.stop_price.toFixed(2)}</span>
             )}
           </div>
         )}

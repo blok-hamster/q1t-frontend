@@ -52,7 +52,9 @@ export interface Trade {
   computed_rr_ratio: number | null;
   classifier_confidence: number | null;
   classifier_source: string | null;
-  exit_reason: 'TP_HIT' | 'SL_HIT' | 'WINDOW_END' | null;
+  fair_value_at_entry?: number | null;
+  fair_value_edge_at_entry?: number | null;
+  exit_reason: 'FAIR_VAL_STOP' | 'WINDOW_END' | 'MAX_HOLD' | 'TIME_EXIT' | 'TP_HIT' | 'SL_HIT' | null;
   createdAt: string;
   updatedAt: string;
 }

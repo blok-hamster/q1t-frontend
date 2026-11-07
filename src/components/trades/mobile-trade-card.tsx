@@ -17,8 +17,14 @@ export function MobileTradeCard({ trade }: MobileTradeCardProps) {
 
   const isWin = trade.status === 'CLOSED_WIN';
   const isLoss = trade.status === 'CLOSED_LOSS';
-  const isOpen = trade.status === 'OPEN' || trade.status === 'LIMIT_PENDING';
+  const isOpen = trade.status === 'OPEN';
   const pnl = trade.pnl || 0;
+  const exitLabel =
+    trade.exit_reason === 'FAIR_VAL_STOP'
+      ? 'FV STOP'
+      : trade.exit_reason === 'WINDOW_END' && (isWin || isLoss)
+      ? 'RESOLVED'
+      : null;
 
   const handleCopyId = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -119,8 +125,27 @@ export function MobileTradeCard({ trade }: MobileTradeCardProps) {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-[#586069] uppercase font-bold">ENTRY PRICE</span>
-              <span className="font-bold text-[#E1E4E8] tabular-nums">${trade.execution_price || trade.entry_share_price || 0}</span>
+              <span className="font-bold text-[#E1E4E8] tabular-nums">
+                ${(trade.entry_share_price ?? trade.execution_price ?? 0).toFixed(2)}
+              </span>
             </div>
+            {trade.fair_value_at_entry != null && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-[#586069] uppercase font-bold">ENTRY FAIR VALUE</span>
+                <span className="font-bold text-[#20B2AA] tabular-nums">
+                  {(trade.fair_value_at_entry * 100).toFixed(1)}%
+                  {trade.fair_value_edge_at_entry != null
+                    ? ` (+${(trade.fair_value_edge_at_entry * 100).toFixed(1)}¢)`
+                    : ''}
+                </span>
+              </div>
+            )}
+            {exitLabel && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-[#586069] uppercase font-bold">EXIT TYPE</span>
+                <span className="font-bold text-[#E1E4E8]">{exitLabel}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between pt-1 border-t border-[#1B2026]">
               <span className="text-[10px] text-[#586069] uppercase font-bold">NET P&L RESULT</span>
               <span className={cn('font-bold tabular-nums text-sm', isWin ? 'text-[#20B2AA]' : isLoss ? 'text-[#E55353]' : 'text-[#8B949E]')}>

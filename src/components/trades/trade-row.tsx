@@ -15,6 +15,12 @@ export function TradeRow({ trade, variant = 'desktop', onClick }: TradeRowProps)
   const isLoss = trade.status === 'CLOSED_LOSS';
   const isOpen = trade.status === 'OPEN';
   const pnl = trade.pnl || 0;
+  const exitLabel =
+    trade.exit_reason === 'FAIR_VAL_STOP'
+      ? 'FV STOP'
+      : trade.exit_reason === 'WINDOW_END' && (isWin || isLoss)
+      ? 'RESOLVED'
+      : null;
 
   if (variant === 'mobile') {
     return (
@@ -75,25 +81,39 @@ export function TradeRow({ trade, variant = 'desktop', onClick }: TradeRowProps)
       </td>
 
       <td className="px-3 py-2 text-right tabular-nums text-[#E1E4E8]">
-        {trade.entry_share_price !== null
-          ? `$${trade.entry_share_price.toFixed(2)}`
-          : trade.execution_price !== null
-          ? `$${trade.execution_price.toFixed(2)}`
-          : '—'}
+        <div>
+          {trade.entry_share_price !== null
+            ? `$${trade.entry_share_price.toFixed(2)}`
+            : trade.execution_price !== null
+            ? `$${trade.execution_price.toFixed(2)}`
+            : '—'}
+        </div>
+        {trade.fair_value_edge_at_entry != null && (
+          <div className="text-[9px] text-[#20B2AA]">
+            +{(trade.fair_value_edge_at_entry * 100).toFixed(1)}¢
+          </div>
+        )}
       </td>
 
       <td className="px-3 py-2 text-right">
-        <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-xs border ${
-          isWin
-            ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
-            : isLoss
-            ? 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30'
-            : isOpen
-            ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/20'
-            : 'bg-[#D99B00]/15 text-[#D99B00] border-[#D99B00]/30'
-        }`}>
-          {trade.status}
-        </span>
+        <div className="inline-flex items-center gap-1 justify-end">
+          {exitLabel && (
+            <span className="px-1 py-0.5 text-[8px] font-bold uppercase rounded-xs bg-[#16191E] text-[#8B949E] border border-[#1B2026]">
+              {exitLabel}
+            </span>
+          )}
+          <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-xs border ${
+            isWin
+              ? 'bg-[#20B2AA]/15 text-[#20B2AA] border-[#20B2AA]/30'
+              : isLoss
+              ? 'bg-[#E55353]/15 text-[#E55353] border-[#E55353]/30'
+              : isOpen
+              ? 'bg-[#20B2AA]/10 text-[#20B2AA] border-[#20B2AA]/20'
+              : 'bg-[#D99B00]/15 text-[#D99B00] border-[#D99B00]/30'
+          }`}>
+            {trade.status}
+          </span>
+        </div>
       </td>
 
       <td className="px-3 py-2 text-right tabular-nums font-bold">

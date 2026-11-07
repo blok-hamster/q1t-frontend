@@ -29,16 +29,31 @@ export interface MidMarketPosition {
   direction: string;
   entry_price: number;
   shares: number;
-  is_limit_pending?: boolean;
-  limit_price?: number;
   stop_price?: number;
-  rr_ratio?: number;
+  probe?: boolean;
+  fair_value_at_entry?: number;
+  fair_value_edge_at_entry?: number;
 }
 
 export interface MidMarketState {
   type: 'price_tick' | 'entry' | 'stop_sell' | 'stop_loss' | 'window_start' | 'window_end' | 'outcome' | 'heartbeat';
+  market_type?: string;
+  asset_price?: number;
   up_price: number | null;
   down_price: number | null;
+  ask_up?: number | null;
+  ask_down?: number | null;
+  bid_up?: number | null;
+  bid_down?: number | null;
+  fair_value_up?: number;
+  fair_value_down?: number;
+  fv_edge_up?: number | null;
+  fv_edge_down?: number | null;
+  min_fv_edge?: number;
+  entry_min_ask?: number;
+  entry_max_ask?: number;
+  fv_stop_prob?: number;
+  fv_stop_bid?: number;
   btc_price: number;
   strike_price: number;
   price_distance: number;
@@ -51,8 +66,6 @@ export interface MidMarketState {
   daily_losses: number;
   daily_pnl: number;
   in_cooldown: boolean;
-  mqs_score?: number;
-  mqs_veto?: string | null;
 }
 
 /**

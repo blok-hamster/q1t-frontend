@@ -9,8 +9,10 @@ import { RefreshCw, Save, FileText, CheckCircle, XCircle, AlertTriangle, Info } 
 
 const COMPACT_FIELDS = [
   'market_type', 'enabled',
-  'num_shares', 'entry_share_price', 'max_entry_price', 'stop_loss_price',
-  'time_exit_seconds', 'take_profit_enabled', 'take_profit_delta',
+  'num_shares', 'entry_share_price', 'max_entry_price',
+  'fair_value_enabled', 'min_fair_value_edge', 'fair_value_sigma',
+  'fair_value_stop_prob', 'fair_value_stop_bid', 'stop_loss_debounce_ticks',
+  'watch_start_seconds', 'watch_end_seconds',
   'streak_enabled', 'breaker_enabled',
   'auto_scale_enabled', 'auto_scale_min_shares', 'auto_scale_target_shares',
   'auto_scale_lookback_hours', 'auto_scale_promote_hours', 'auto_scale_promote_min_trades',
@@ -163,20 +165,25 @@ export default function AdminMarketConfigsPage() {
                     {c?.enabled ? 'ON' : 'OFF'}
                   </span>
                 </div>
-                <div className="mt-1 space-y-0.5">
-                  {c?.auto_scale_enabled && (
-                    <span className="inline-block text-[9px] font-bold uppercase text-accent-primary bg-accent-muted border border-accent-primary/30 px-1 py-0.5 rounded-xs mr-1">
-                      auto-scale
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {typeof c?.min_fair_value_edge === 'number' && (
+                    <span className="inline-block text-[9px] font-bold uppercase text-positive bg-positive/10 border border-positive/30 px-1 py-0.5 rounded-xs">
+                      FV +{(c.min_fair_value_edge * 100).toFixed(1)}¢
+                    </span>
+                  )}
+                  {typeof c?.entry_share_price === 'number' && typeof c?.max_entry_price === 'number' && (
+                    <span className="inline-block text-[9px] font-bold uppercase text-text-secondary bg-bg-secondary border border-border px-1 py-0.5 rounded-xs">
+                      ${c.entry_share_price.toFixed(2)}–${c.max_entry_price.toFixed(2)}
                     </span>
                   )}
                   {typeof c?.num_shares === 'number' && (
-                    <span className="inline-block text-[9px] font-bold uppercase text-text-secondary bg-bg-secondary border border-border px-1 py-0.5 rounded-xs mr-1">
+                    <span className="inline-block text-[9px] font-bold uppercase text-text-secondary bg-bg-secondary border border-border px-1 py-0.5 rounded-xs">
                       {c.num_shares} sh
                     </span>
                   )}
                   {c?.auto_scale_enabled && (
-                    <span className="inline-block text-[9px] font-bold uppercase text-text-secondary bg-bg-secondary border border-border px-1 py-0.5 rounded-xs mr-1">
-                      lookback {c.auto_scale_lookback_hours ?? '?'}h
+                    <span className="inline-block text-[9px] font-bold uppercase text-accent-primary bg-accent-muted border border-accent-primary/30 px-1 py-0.5 rounded-xs">
+                      auto-scale
                     </span>
                   )}
                 </div>

@@ -82,7 +82,7 @@ export function MobileFilterSheet({
               EXECUTION STATUS
             </span>
             <div className="flex flex-wrap gap-1.5">
-              {(['all', 'OPEN', 'LIMIT_PENDING', 'CLOSED_WIN', 'CLOSED_LOSS'] as const).map((s) => (
+              {(['all', 'OPEN', 'CLOSED_WIN', 'CLOSED_LOSS'] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => onStatusChange(s)}
@@ -93,7 +93,7 @@ export function MobileFilterSheet({
                       : 'bg-[#16191E] text-[#8B949E] border-[#1B2026]'
                   )}
                 >
-                  {s === 'all' ? 'ALL STATUSES' : s === 'LIMIT_PENDING' ? 'LIMIT OPEN' : s.replace('_', ' ')}
+                  {s === 'all' ? 'ALL STATUSES' : s.replace('_', ' ')}
                 </button>
               ))}
             </div>

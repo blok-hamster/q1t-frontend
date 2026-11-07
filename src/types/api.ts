@@ -103,17 +103,20 @@ export interface MarketConfig {
   market_type: string;
   enabled: boolean;
   entry_share_price: number;
-  min_price_distance: number;
   max_entry_price: number;
-  stop_loss_price: number;
+  stop_loss_price?: number;
   num_shares: number;
   max_daily_trades: number;
   max_concurrent: number;
   cooldown_after_stop_seconds: number;
   watch_start_seconds: number;
   watch_end_seconds: number;
-  mqs_enabled: boolean;
-  mqs_threshold: number;
+  // Model D: Black-Scholes Binary Fair-Value Alpha
+  fair_value_enabled?: boolean;
+  min_fair_value_edge?: number;
+  fair_value_sigma?: number;
+  fair_value_stop_prob?: number;
+  fair_value_stop_bid?: number;
   // Kronos volatility gating
   volatility_gate_enabled: boolean;
   min_kronos_spread: number;
@@ -124,27 +127,12 @@ export interface MarketConfig {
   fade_mqs_max: number;
   fade_num_shares: number;
   fade_stop_loss: number;
-  // Dynamic stop-loss (symmetric R:R)
-  dynamic_stop_enabled?: boolean;
-  target_rr_ratio?: number;
-  min_stop_floor?: number;
-  min_rr_ratio?: number;
   // Stop-loss debounce
   stop_loss_debounce_ticks?: number;
-  // Retrace limit entry
-  retrace_entry_enabled?: boolean;
-  limit_entry_price?: number;
-  // FOK limit price buffer
+  // Order execution buffers
   fok_buffer_cents?: number;
   sell_buffer_cents?: number;
   blocked_hours_utc?: number[];
-  stop_loss_hard_floor_cents?: number;
-  time_exit_seconds?: number;
-  time_exit_threshold?: number;
-  take_profit_enabled?: boolean;
-  take_profit_delta?: number;
-  max_hold_seconds?: number;
-  max_hold_drawdown?: number;
   max_losses_per_window?: number;
   entry_dedup_seconds?: number;
   // Coin streak: auto-pause cold coins and resume only after a win streak
@@ -153,8 +141,24 @@ export interface MarketConfig {
   streak_min_wins?: number;
   streak_resume_wins?: number;
   streak_probe_shares?: number;
-  // Relative price distance from strike (as a fraction of asset price)
-  min_relative_price_distance?: number;
+  // Tail breaker & Auto-scale
+  breaker_enabled?: boolean;
+  breaker_window_count?: number;
+  breaker_threshold?: number;
+  breaker_hold_windows?: number;
+  auto_scale_enabled?: boolean;
+  auto_scale_min_shares?: number;
+  auto_scale_target_shares?: number;
+  auto_scale_lookback_hours?: number;
+  auto_scale_promote_hours?: number;
+  auto_scale_min_trades?: number;
+  auto_scale_promote_min_trades?: number;
+  auto_scale_flip_hold_minutes?: number;
+  auto_scale_wr_promote?: number;
+  auto_scale_stop_rate_promote?: number;
+  auto_scale_wr_demote?: number;
+  auto_scale_stop_rate_demote?: number;
+  auto_scale_eval_seconds?: number;
   // Reversal-fade suppression: skip entering the opposite side of a window the user already won.
   reversal_fade_suppress_enabled?: boolean;
 }

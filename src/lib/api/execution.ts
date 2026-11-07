@@ -16,7 +16,9 @@ export interface PositionInfo {
   num_shares?: number;
   probe?: boolean;
   stop_loss_price?: number;
-  take_profit_price?: number;
+  fair_value_mode?: boolean;
+  fair_value_at_entry?: number;
+  fair_value_edge_at_entry?: number;
 }
 
 export interface AutoScaleStats {

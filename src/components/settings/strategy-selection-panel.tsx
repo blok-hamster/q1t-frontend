@@ -23,7 +23,7 @@ const STRATEGIES = [
   {
     value: 'mid_market',
     label: 'Mid-Market Strategy',
-    description: 'Trajectory slope consensus & momentum entry during 5-minute active windows',
+    description: 'Black-Scholes binary fair-value alpha: buys lagging Polymarket asks with post-fee edge and holds winners to $1.00 resolution',
     icon: TrendingUp,
   },
 ];

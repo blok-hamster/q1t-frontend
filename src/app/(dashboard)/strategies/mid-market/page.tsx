@@ -288,7 +288,7 @@ export default function MidMarketStrategyPage() {
             <MidMarketForecastBars
               marketType={selectedMarket}
               numShares={
-                marketConfigs.find((c) => c.market_type === selectedMarket)?.num_shares || 20
+                marketConfigs.find((c) => c.market_type === selectedMarket)?.num_shares || 25
               }
             />
           </div>
@@ -305,6 +305,8 @@ export default function MidMarketStrategyPage() {
           {/* Config Toggle Drawer Button */}
           <div className="bg-[#0F1215] border border-[#1B2026] p-3">
             <button
+              type="button"
+              aria-expanded={showConfig}
               onClick={() => setShowConfig(!showConfig)}
               className="w-full flex items-center justify-between px-3 py-2 bg-[#16191E] border border-[#1B2026] hover:border-[#20B2AA] transition-colors text-xs font-mono font-bold text-[#E1E4E8]"
             >

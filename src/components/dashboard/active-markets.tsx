@@ -45,7 +45,8 @@ interface MarketState {
   dailyWins: number;
   dailyLosses: number;
   dailyPnl: number;
-  mqsScore: number;
+  bestEdge: number | null;
+  minFvEdge: number;
 }
 
 function emptyState(): MarketState {
@@ -61,7 +62,8 @@ function emptyState(): MarketState {
     dailyWins: 0,
     dailyLosses: 0,
     dailyPnl: 0,
-    mqsScore: 0,
+    bestEdge: null,
+    minFvEdge: 0.04,
   };
 }
 
@@ -126,6 +128,7 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
           updated.position = null;
           updated.upPrice = null;
           updated.downPrice = null;
+          updated.bestEdge = null;
           return { ...prev, [mt]: updated };
         }
 
@@ -134,13 +137,17 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
         if (data.strike_price != null) updated.strikePrice = data.strike_price;
         if (data.price_distance != null) updated.priceDistance = Math.round(data.price_distance * 10) / 10;
         if (data.window_end_ts && data.window_end_ts > 0) updated.windowEndTs = data.window_end_ts;
-        if ((data as any).position) updated.position = (data as any).position;
+        if (data.position) updated.position = data.position;
         if (data.type === 'stop_sell') updated.position = null;
-        if ((data as any).daily_trades != null) updated.dailyTrades = (data as any).daily_trades;
-        if ((data as any).daily_wins != null) updated.dailyWins = (data as any).daily_wins;
-        if ((data as any).daily_losses != null) updated.dailyLosses = (data as any).daily_losses;
-        if ((data as any).daily_pnl != null) updated.dailyPnl = Math.round((data as any).daily_pnl * 100) / 100;
-        if ((data as any).mqs_score != null) updated.mqsScore = Math.round((data as any).mqs_score * 100) / 100;
+        if (data.daily_trades != null) updated.dailyTrades = data.daily_trades;
+        if (data.daily_wins != null) updated.dailyWins = data.daily_wins;
+        if (data.daily_losses != null) updated.dailyLosses = data.daily_losses;
+        if (data.daily_pnl != null) updated.dailyPnl = Math.round(data.daily_pnl * 100) / 100;
+        if (data.min_fv_edge != null) updated.minFvEdge = data.min_fv_edge;
+        if (data.fv_edge_up != null || data.fv_edge_down != null) {
+          const edges = [data.fv_edge_up, data.fv_edge_down].filter((e): e is number => e != null);
+          updated.bestEdge = edges.length > 0 ? Math.max(...edges) : null;
+        }
 
         return { ...prev, [mt]: updated };
       });
@@ -183,23 +190,6 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
       }));
     };
 
-    const tpHandler = (data: any) => {
-      const mt = data.market_type || 'btc-5m';
-      if (!marketsRef.current[mt]) return;
-      setMarkets(prev => ({
-        ...prev,
-        [mt]: {
-          ...prev[mt],
-          position: null,
-          dailyTrades: data.daily_trades ?? prev[mt].dailyTrades,
-          dailyWins: data.daily_wins ?? prev[mt].dailyWins + 1,
-          dailyLosses: data.daily_losses ?? prev[mt].dailyLosses,
-          dailyPnl: data.daily_pnl != null ? Math.round(data.daily_pnl * 100) / 100 : prev[mt].dailyPnl,
-          lastEvent: Date.now(),
-        }
-      }));
-    };
-
     const resolvedHandler = (data: any) => {
       const mt = data.market_type || 'btc-5m';
       if (!marketsRef.current[mt]) return;
@@ -219,14 +209,12 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
 
     socket.on('mid_market_entry', entryHandler);
     socket.on('mid_market_stop', stopHandler);
-    socket.on('mid_market_tp_hit', tpHandler);
     socket.on('mid_market_resolved', resolvedHandler);
 
     return () => {
       socket.off('mid_market_update', handler);
       socket.off('mid_market_entry', entryHandler);
       socket.off('mid_market_stop', stopHandler);
-      socket.off('mid_market_tp_hit', tpHandler);
       socket.off('mid_market_resolved', resolvedHandler);
     };
   }, [socket]);
@@ -372,9 +360,17 @@ function MarketRow({ market, state }: { market: typeof ALL_MARKETS[0]; state: Ma
           </span>
         )}
 
-        {state.mqsScore > 0 && (
-          <span className={`text-[10px] font-mono tabular-nums ${state.mqsScore >= 0.6 ? 'text-positive' : state.mqsScore >= 0.4 ? 'text-warning' : 'text-negative'}`}>
-            {(state.mqsScore * 100).toFixed(0)}%
+        {state.bestEdge != null && (
+          <span
+            className={`text-[10px] font-mono tabular-nums ${
+              state.bestEdge >= state.minFvEdge
+                ? 'text-positive font-bold'
+                : state.bestEdge > 0
+                ? 'text-text-secondary'
+                : 'text-text-tertiary'
+            }`}
+          >
+            {state.bestEdge >= 0 ? '+' : ''}{(state.bestEdge * 100).toFixed(1)}¢
           </span>
         )}
 

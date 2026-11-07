@@ -18,15 +18,15 @@ export interface MidMarketForecastBarsProps {
 
 export function MidMarketForecastBars({
   marketType = 'btc-5m',
-  numShares = 20,
+  numShares = 25,
 }: MidMarketForecastBarsProps) {
   const [data, setData] = useState<ForecastWindow[]>([]);
   const asset = marketType.split('-')[0].toUpperCase();
 
   useEffect(() => {
     const loadUserForecast = async () => {
-      // Calculate user's single-window position stake base (e.g., 20 shares @ $0.80 = $16)
-      const userWindowStake = Math.max(10, Math.round(numShares * 0.8));
+      // Calculate user's single-window position stake base (Model D $0.65–$0.85 midpoint = $0.75)
+      const userWindowStake = Math.max(10, Math.round(numShares * 0.75));
 
       try {
         const { trades } = await executionApi.getTrades();

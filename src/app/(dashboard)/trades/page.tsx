@@ -78,14 +78,12 @@ export default function TradesPage() {
     };
     socket.on('mid_market_entry', refetchOnEvent);
     socket.on('mid_market_stop', refetchOnEvent);
-    socket.on('mid_market_tp_hit', refetchOnEvent);
     socket.on('mid_market_resolved', refetchOnEvent);
 
     return () => {
       socket.off('execution_update');
       socket.off('mid_market_entry', refetchOnEvent);
       socket.off('mid_market_stop', refetchOnEvent);
-      socket.off('mid_market_tp_hit', refetchOnEvent);
       socket.off('mid_market_resolved', refetchOnEvent);
     };
   }, [socket, fetchTrades]);
@@ -99,7 +97,7 @@ export default function TradesPage() {
 
     return {
       totalTrades: trades.length,
-      openTrades: trades.filter((t) => t.status === 'OPEN' || t.status === 'LIMIT_PENDING').length,
+      openTrades: trades.filter((t) => t.status === 'OPEN').length,
       winRate: closedTrades.length > 0
         ? (winningTrades.length / closedTrades.length) * 100
         : 0,
@@ -199,7 +197,7 @@ export default function TradesPage() {
           <div className="flex items-center gap-1.5 max-w-full">
             <span className="text-[10px] text-[#586069] uppercase font-bold shrink-0">STATUS:</span>
             <div className="flex gap-1 overflow-x-auto scrollbar-none max-w-full py-0.5">
-              {(['all', 'OPEN', 'LIMIT_PENDING', 'CLOSED_WIN', 'CLOSED_LOSS'] as const).map((status) => (
+              {(['all', 'OPEN', 'CLOSED_WIN', 'CLOSED_LOSS'] as const).map((status) => (
                 <button
                   key={status}
                   onClick={() => { setStatusFilter(status); setCurrentPage(1); }}
@@ -209,7 +207,7 @@ export default function TradesPage() {
                       : 'bg-[#16191E] text-[#8B949E] border-[#1B2026] hover:text-[#E1E4E8]'
                   }`}
                 >
-                  {status === 'all' ? 'ALL' : status === 'LIMIT_PENDING' ? 'LIMIT OPEN' : status.replace('_', ' ')}
+                  {status === 'all' ? 'ALL' : status.replace('_', ' ')}
                 </button>
               ))}
             </div>
