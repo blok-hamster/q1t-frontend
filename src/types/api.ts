@@ -135,30 +135,6 @@ export interface MarketConfig {
   blocked_hours_utc?: number[];
   max_losses_per_window?: number;
   entry_dedup_seconds?: number;
-  // Coin streak: auto-pause cold coins and resume only after a win streak
-  streak_enabled?: boolean;
-  streak_lookback?: number;
-  streak_min_wins?: number;
-  streak_resume_wins?: number;
-  streak_probe_shares?: number;
-  // Tail breaker & Auto-scale
-  breaker_enabled?: boolean;
-  breaker_window_count?: number;
-  breaker_threshold?: number;
-  breaker_hold_windows?: number;
-  auto_scale_enabled?: boolean;
-  auto_scale_min_shares?: number;
-  auto_scale_target_shares?: number;
-  auto_scale_lookback_hours?: number;
-  auto_scale_promote_hours?: number;
-  auto_scale_min_trades?: number;
-  auto_scale_promote_min_trades?: number;
-  auto_scale_flip_hold_minutes?: number;
-  auto_scale_wr_promote?: number;
-  auto_scale_stop_rate_promote?: number;
-  auto_scale_wr_demote?: number;
-  auto_scale_stop_rate_demote?: number;
-  auto_scale_eval_seconds?: number;
   // Reversal-fade suppression: skip entering the opposite side of a window the user already won.
   reversal_fade_suppress_enabled?: boolean;
 }

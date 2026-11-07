@@ -121,7 +121,6 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({
             direction: pos.direction,
             entry_price: pos.entry_price,
             shares: pos.num_shares || 0,
-            probe: pos.probe === true,
             stop_price: pos.stop_loss_price,
             fair_value_at_entry: pos.fair_value_at_entry,
             fair_value_edge_at_entry: pos.fair_value_edge_at_entry,
@@ -225,7 +224,6 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({
         direction: data.direction,
         entry_price: data.entry_price,
         shares: data.num_shares || 0,
-        probe: data.probe === true,
         stop_price: data.stop_price,
         fair_value_at_entry: data.fair_value,
         fair_value_edge_at_entry: data.fair_value_edge,
@@ -391,16 +389,9 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({
         {position ? (
           <div className="p-3 border rounded-lg border-accent-primary/30 bg-accent-muted">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-tighter text-accent-primary">
-                  ACTIVE POSITION
-                </span>
-                {position.probe && (
-                  <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded-xs bg-[#D99B00]/15 text-[#D99B00] border border-[#D99B00]/30">
-                    PROBE
-                  </span>
-                )}
-              </div>
+              <span className="text-[10px] font-bold uppercase tracking-tighter text-accent-primary">
+                ACTIVE POSITION
+              </span>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-text-tertiary tabular-nums">
                   {position.shares} SH

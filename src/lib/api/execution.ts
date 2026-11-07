@@ -14,56 +14,10 @@ export interface PositionInfo {
   direction: string;
   entry_price: number;
   num_shares?: number;
-  probe?: boolean;
   stop_loss_price?: number;
   fair_value_mode?: boolean;
   fair_value_at_entry?: number;
   fair_value_edge_at_entry?: number;
-}
-
-export interface AutoScaleStats {
-  n?: number;
-  wr?: number;
-  stopRate?: number;
-  pnl?: number;
-}
-
-export type AutoScaleMode = 'full' | 'listen';
-
-export interface AutoScalePreview {
-  would_flip_to?: 'full' | 'listen' | null;
-  would_flip_after_hold?: 'full' | 'listen' | null;
-  hold_remaining_seconds?: number;
-  thresholds?: {
-    promote?: { window_hours?: number; min_trades?: number; wr?: number; stop_rate?: number; pnl_positive?: boolean };
-    demote?: { window_hours?: number; wr?: number; stop_rate?: number };
-  };
-  promote?: {
-    window_hours?: number;
-    n?: number;
-    wr?: number;
-    stop_rate?: number;
-    pnl?: number;
-    met?: boolean;
-    unmet?: string[];
-  };
-  demote?: {
-    n?: number;
-    wr?: number;
-    stop_rate?: number;
-    pnl?: number;
-    triggered?: boolean;
-    unmet?: string[];
-  };
-}
-
-export interface CoinStreakState {
-  streak: string[];
-  paused: boolean;
-  breaker_armed?: boolean;
-  auto_scale_mode?: AutoScaleMode | 'unknown';
-  auto_scale_stats?: AutoScaleStats;
-  auto_scale_preview?: AutoScalePreview;
 }
 
 export interface MidMarketDailyStats {
@@ -73,7 +27,6 @@ export interface MidMarketDailyStats {
   daily_pnl: number;
   per_market: Record<string, MarketStats>;
   positions: Record<string, PositionInfo[]>;
-  streaks?: Record<string, CoinStreakState>;
 }
 
 /**

@@ -30,7 +30,6 @@ export interface MidMarketPosition {
   entry_price: number;
   shares: number;
   stop_price?: number;
-  probe?: boolean;
   fair_value_at_entry?: number;
   fair_value_edge_at_entry?: number;
 }

@@ -13,10 +13,6 @@ const COMPACT_FIELDS = [
   'fair_value_enabled', 'min_fair_value_edge', 'fair_value_sigma',
   'fair_value_stop_prob', 'fair_value_stop_bid', 'stop_loss_debounce_ticks',
   'watch_start_seconds', 'watch_end_seconds',
-  'streak_enabled', 'breaker_enabled',
-  'auto_scale_enabled', 'auto_scale_min_shares', 'auto_scale_target_shares',
-  'auto_scale_lookback_hours', 'auto_scale_promote_hours', 'auto_scale_promote_min_trades',
-  'auto_scale_flip_hold_minutes', 'auto_scale_eval_seconds',
 ];
 
 function stripSystemFields(config: any): any {
@@ -179,11 +175,6 @@ export default function AdminMarketConfigsPage() {
                   {typeof c?.num_shares === 'number' && (
                     <span className="inline-block text-[9px] font-bold uppercase text-text-secondary bg-bg-secondary border border-border px-1 py-0.5 rounded-xs">
                       {c.num_shares} sh
-                    </span>
-                  )}
-                  {c?.auto_scale_enabled && (
-                    <span className="inline-block text-[9px] font-bold uppercase text-accent-primary bg-accent-muted border border-accent-primary/30 px-1 py-0.5 rounded-xs">
-                      auto-scale
                     </span>
                   )}
                 </div>

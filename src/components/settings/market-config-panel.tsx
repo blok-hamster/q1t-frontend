@@ -77,11 +77,6 @@ const DEFAULT_CONFIG: MarketConfig = {
   blocked_hours_utc: [],
   max_losses_per_window: 1,
   entry_dedup_seconds: 4,
-  streak_enabled: true,
-  streak_lookback: 4,
-  streak_min_wins: 3,
-  streak_resume_wins: 2,
-  streak_probe_shares: 1,
   reversal_fade_suppress_enabled: true,
 };
 
@@ -787,101 +782,6 @@ export function MarketConfigPanel({
                         step={1}
                         value={config.min_kronos_spread * 10000}
                         onChange={(v) => update('min_kronos_spread', v / 10000)}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Coin Streak & Pause */}
-                <div className="space-y-3 border-t border-border-primary/50 pt-3">
-                  <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">
-                    Coin Streak &amp; Pause
-                  </h4>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-text-primary">Auto-Pause Losing Coins</span>
-                    <Switch
-                      checked={config.streak_enabled ?? true}
-                      onChange={(checked) => update('streak_enabled', checked)}
-                    />
-                  </div>
-
-                  {(config.streak_enabled ?? true) && (
-                    <div className="space-y-2.5 pl-2.5 border-l border-amber-500/30 ml-1">
-                      <div className="flex items-center justify-between">
-                        <label htmlFor={`${baseId}-streak-lb`} className="text-xs font-medium text-text-secondary">
-                          Streak Lookback (trades)
-                        </label>
-                        <span className="text-xs font-mono text-text-primary tabular-nums">
-                          {config.streak_lookback ?? 4}
-                        </span>
-                      </div>
-                      <Slider
-                        id={`${baseId}-streak-lb`}
-                        name="streak_lookback"
-                        showValue={false}
-                        min={2}
-                        max={8}
-                        step={1}
-                        value={config.streak_lookback ?? 4}
-                        onChange={(v) => update('streak_lookback', v)}
-                      />
-
-                      <div className="flex items-center justify-between">
-                        <label htmlFor={`${baseId}-streak-min`} className="text-xs font-medium text-text-secondary">
-                          Min Wins to Stay Active
-                        </label>
-                        <span className="text-xs font-mono text-text-primary tabular-nums">
-                          {config.streak_min_wins ?? 3}
-                        </span>
-                      </div>
-                      <Slider
-                        id={`${baseId}-streak-min`}
-                        name="streak_min_wins"
-                        showValue={false}
-                        min={1}
-                        max={7}
-                        step={1}
-                        value={config.streak_min_wins ?? 3}
-                        onChange={(v) => update('streak_min_wins', v)}
-                      />
-
-                      <div className="flex items-center justify-between">
-                        <label htmlFor={`${baseId}-streak-res`} className="text-xs font-medium text-text-secondary">
-                          Wins to Resume
-                        </label>
-                        <span className="text-xs font-mono text-text-primary tabular-nums">
-                          {config.streak_resume_wins ?? 2}
-                        </span>
-                      </div>
-                      <Slider
-                        id={`${baseId}-streak-res`}
-                        name="streak_resume_wins"
-                        showValue={false}
-                        min={1}
-                        max={7}
-                        step={1}
-                        value={config.streak_resume_wins ?? 2}
-                        onChange={(v) => update('streak_resume_wins', v)}
-                      />
-
-                      <div className="flex items-center justify-between">
-                        <label htmlFor={`${baseId}-streak-probe`} className="text-xs font-medium text-text-secondary">
-                          Probe Shares
-                        </label>
-                        <span className="text-xs font-mono text-text-primary tabular-nums">
-                          {config.streak_probe_shares ?? 1}
-                        </span>
-                      </div>
-                      <Slider
-                        id={`${baseId}-streak-probe`}
-                        name="streak_probe_shares"
-                        showValue={false}
-                        min={1}
-                        max={10}
-                        step={1}
-                        value={config.streak_probe_shares ?? 1}
-                        onChange={(v) => update('streak_probe_shares', v)}
                       />
                     </div>
                   )}

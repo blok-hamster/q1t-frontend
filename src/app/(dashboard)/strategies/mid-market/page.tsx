@@ -9,7 +9,6 @@ import { PolymarketStrikeChart } from '@/components/mid-market/polymarket-strike
 import { MobileChartWrapper } from '@/components/mid-market/mobile-chart-wrapper';
 import { MidMarketForecastBars } from '@/components/mid-market/mid-market-forecast-bars';
 import { MidMarketMonitor } from '@/components/dashboard/mid-market-monitor';
-import { CoinStreakPanel } from '@/components/dashboard/coin-streak-panel';
 import { MarketConfigPanel } from '@/components/settings/market-config-panel';
 import { MobileBottomSheet } from '@/components/ui/mobile-bottom-sheet';
 import { Loading } from '@/components/ui/loading';
@@ -298,9 +297,6 @@ export default function MidMarketStrategyPage() {
         <div className="hidden lg:block space-y-4">
           {/* Mid-Market Monitor */}
           <MidMarketMonitor enabled={isMidMarketActive} marketType={selectedMarket} />
-
-          {/* Coin Streak & Probe Status */}
-          <CoinStreakPanel />
 
           {/* Config Toggle Drawer Button */}
           <div className="bg-[#0F1215] border border-[#1B2026] p-3">

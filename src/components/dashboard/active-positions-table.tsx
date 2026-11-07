@@ -39,7 +39,6 @@ interface PositionInfo {
   strategy: 'mid_market' | 'ai_prediction_v2';
   num_shares?: number;
   stop_price?: number;
-  probe?: boolean;
   fair_value_at_entry?: number;
   fair_value_edge_at_entry?: number;
 }
@@ -135,7 +134,6 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
                   strategy: 'mid_market',
                   num_shares: midPos.num_shares,
                   stop_price: midPos.stop_loss_price,
-                  probe: midPos.probe === true,
                   fair_value_at_entry: midPos.fair_value_at_entry,
                   fair_value_edge_at_entry: midPos.fair_value_edge_at_entry,
                 },
@@ -239,7 +237,6 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
             strategy: 'mid_market',
             num_shares: data.num_shares,
             stop_price: data.stop_price,
-            probe: data.probe === true,
             fair_value_at_entry: data.fair_value,
             fair_value_edge_at_entry: data.fair_value_edge,
           },
@@ -512,7 +509,6 @@ function MarketCard({ market, state }: { market: typeof ALL_MARKETS[0]; state: M
           <div className="pt-1.5 border-t border-[#1B2026]/80 flex items-center justify-between text-[10px] tabular-nums">
             <span className="text-[#8B949E]">
               {pos.num_shares ? `${pos.num_shares} SHARES` : 'MID-MARKET'}
-              {pos.probe ? ' · PROBE' : ''}
               {pos.fair_value_edge_at_entry != null
                 ? ` · +${(pos.fair_value_edge_at_entry * 100).toFixed(1)}¢`
                 : ''}
