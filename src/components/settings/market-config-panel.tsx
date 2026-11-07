@@ -325,6 +325,27 @@ export function MarketConfigPanel({
                 Maximum open positions for this market at the same time
               </p>
             </div>
+
+            {/* Profit Delta */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-text-primary">Profit Delta ($ gain per share)</label>
+                <span className="text-sm font-mono font-semibold text-emerald-400">
+                  +${(config.take_profit_delta ?? (isInterval15m ? 0.12 : 0.10)).toFixed(2)}
+                </span>
+              </div>
+              <Slider
+                min={5}
+                max={25}
+                step={1}
+                value={(config.take_profit_delta ?? (isInterval15m ? 0.12 : 0.10)) * 100}
+                onChange={(v) => update('take_profit_delta', v / 100)}
+                formatValue={(v) => `+$${(v / 100).toFixed(2)}`}
+              />
+              <p className="text-xs text-text-tertiary">
+                Exits position early when share price rises by this delta above entry price (e.g. entry $0.80 + $0.10 = sell at $0.90). Applies when take-profit exits are enabled.
+              </p>
+            </div>
           </div>
         )}
 
