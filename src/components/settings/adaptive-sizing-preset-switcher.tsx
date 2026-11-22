@@ -1,9 +1,8 @@
 'use client';
 
-import { useId, useState } from 'react';
-import { Sliders, Layers, ShieldAlert, Loader2, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { Sliders, Layers, ShieldAlert, Loader2, CheckCircle2, ShieldCheck, BookOpen } from 'lucide-react';
 import { toast } from '@/context/toast-context';
-import { Switch } from '@/components/ui/switch';
 import { MarketConfig, RiskConfig } from '@/types/api';
 import { settingsApi } from '@/lib/api/settings';
 import {
@@ -22,6 +21,8 @@ import {
   previewPresetExample,
 } from '@/lib/adaptive-sizing-presets';
 import { cn } from '@/lib/utils/cn';
+import { PRESET_HELP_GUIDES } from '@/lib/preset-help-content';
+import { PresetInfoButton } from './preset-info-button';
 
 interface AdaptiveSizingPresetSwitcherProps {
   riskConfig?: RiskConfig | null;
@@ -39,12 +40,18 @@ export function AdaptiveSizingPresetSwitcher({
   compact = false,
 }: AdaptiveSizingPresetSwitcherProps) {
   const [savingKey, setSavingKey] = useState<string | null>(null);
-  const skipToggleId = useId();
 
   const activePreset = detectActiveAdaptivePreset(riskConfig);
   const activeConcurrent = detectConcurrentPreset(marketConfigs, riskConfig);
   const activeEntryGate = detectEntryGatePreset(riskConfig);
-  const skipQuietExpensive = riskConfig?.skip_quiet_expensive_enabled ?? false;
+  const maxSameDirCoins: 0 | 2 | 3 =
+    riskConfig?.max_same_dir_5m_coins === 0 || riskConfig?.max_same_dir_5m_coins === 2
+      ? riskConfig.max_same_dir_5m_coins
+      : 3;
+  const orderbookDepthMode: 'off' | 'cap_size' | 'strict_skip' =
+    riskConfig?.orderbook_depth_mode === 'off' || riskConfig?.orderbook_depth_mode === 'strict_skip'
+      ? riskConfig.orderbook_depth_mode
+      : 'cap_size';
   const fixedSharesSample = marketConfigs.find((c) => c.market_type.endsWith('-5m'))?.num_shares ?? 20;
 
   const handleSelectEntryGatePreset = async (gateId: EntryGatePresetId) => {
@@ -114,21 +121,38 @@ export function AdaptiveSizingPresetSwitcher({
     }
   };
 
-  const handleToggleSkipQuietExpensive = async (checked: boolean) => {
+  const handleSelectSameDirCoinCap = async (cap: 0 | 2 | 3) => {
     if (savingKey) return;
-    setSavingKey('toggle:skip_quiet');
+    setSavingKey(`coincap:${cap}`);
     try {
       const res = await settingsApi.updateRiskConfig({
-        skip_quiet_expensive_enabled: checked,
+        max_same_dir_5m_coins: cap,
       });
       onRiskConfigUpdated?.(res.riskConfig);
       toast.success(
-        checked
-          ? 'Quiet-floor + $0.87+ skip filter enabled'
-          : 'Quiet-floor + $0.87+ filter turned OFF (uses 0.65× reduced size instead)'
+        cap === 0
+          ? 'Same-window coin cap turned OFF (unlimited)'
+          : `Same-window coin cap set to Max ${cap} coins per direction`
       );
     } catch (err: any) {
-      toast.error(err?.error || err?.message || 'Failed to update quiet-floor filter');
+      toast.error(err?.error || err?.message || 'Failed to update same-window coin cap');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const handleSelectDepthMode = async (mode: 'off' | 'cap_size' | 'strict_skip') => {
+    if (savingKey) return;
+    setSavingKey(`depth:${mode}`);
+    try {
+      const res = await settingsApi.updateRiskConfig({
+        orderbook_depth_mode: mode,
+      });
+      onRiskConfigUpdated?.(res.riskConfig);
+      const label = mode === 'off' ? 'OFF' : mode === 'cap_size' ? 'Cap Size' : 'Strict Skip';
+      toast.success(`Orderbook depth guard set to ${label}`);
+    } catch (err: any) {
+      toast.error(err?.error || err?.message || 'Failed to update orderbook depth guard');
     } finally {
       setSavingKey(null);
     }
@@ -149,6 +173,7 @@ export function AdaptiveSizingPresetSwitcher({
             <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#E1E4E8]">
               POSITION SIZING PRESETS
             </span>
+            <PresetInfoButton guide={PRESET_HELP_GUIDES.sizing} accentClassName="text-[#20B2AA]" />
           </div>
           <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 border border-[#1B2026] bg-[#080A0C] text-[#8B949E] rounded-xs">
             ACTIVE:{' '}
@@ -232,6 +257,7 @@ export function AdaptiveSizingPresetSwitcher({
             <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#E1E4E8]">
               CONCURRENT 5M ORDER MODE
             </span>
+            <PresetInfoButton guide={PRESET_HELP_GUIDES.concurrent} accentClassName="text-[#D99B00]" />
           </div>
           <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 border border-[#1B2026] bg-[#080A0C] text-[#8B949E] rounded-xs">
             MODE:{' '}
@@ -295,6 +321,7 @@ export function AdaptiveSizingPresetSwitcher({
             <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#E1E4E8]">
               ENTRY &amp; FALLING-KNIFE PROTECTION PRESET
             </span>
+            <PresetInfoButton guide={PRESET_HELP_GUIDES.entry_gate} accentClassName="text-[#10B981]" />
           </div>
           <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 border border-[#1B2026] bg-[#080A0C] text-[#8B949E] rounded-xs">
             ACTIVE:{' '}
@@ -366,36 +393,135 @@ export function AdaptiveSizingPresetSwitcher({
         </div>
       </div>
 
-      {/* Section 4: Quiet-Floor + Expensive Entry Skip Toggle */}
-      <div className="pt-2 border-t border-[#1B2026] flex items-center justify-between gap-3">
-        <div className="space-y-0.5 min-w-0">
-          <label
-            htmlFor={skipToggleId}
-            className="text-[11px] font-bold uppercase text-[#E1E4E8] flex items-center gap-1.5 cursor-pointer"
-          >
-            <ShieldAlert className="h-3.5 w-3.5 text-[#20B2AA] shrink-0" />
-            <span className="truncate">SKIP QUIET + EXPENSIVE ($0.87+ &amp; ≤1.21× VOL)</span>
-          </label>
-          <p className="text-[10px] font-sans text-[#8B949E] leading-snug">
-            {skipQuietExpensive
-              ? 'ON: Skips high-price entries ($0.87+) during sleepy floor volatility (≤1.21×) where R:R is worst.'
-              : 'OFF: Allows $0.87+ floor entries, relying only on 0.65× reduced bet sizing.'}
-          </p>
+      {/* Section 4: Same-Window Coin Correlation Cap (5m) */}
+      <div className="space-y-2 pt-2 border-t border-[#1B2026]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-[#38BDF8]" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#E1E4E8]">
+              SAME-WINDOW COIN CAP (5M)
+            </span>
+            <PresetInfoButton guide={PRESET_HELP_GUIDES.coin_cap} accentClassName="text-[#38BDF8]" />
+          </div>
+          <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 border border-[#1B2026] bg-[#080A0C] text-[#8B949E] rounded-xs">
+            ACTIVE:{' '}
+            <span className="text-[#38BDF8]">
+              {maxSameDirCoins === 0 ? 'OFF (UNLIMITED)' : `MAX ${maxSameDirCoins} COINS`}
+            </span>
+          </span>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {savingKey === 'toggle:skip_quiet' && (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-[#20B2AA]" />
-          )}
-          <Switch
-            id={skipToggleId}
-            role="switch"
-            aria-checked={skipQuietExpensive}
-            size="sm"
-            checked={skipQuietExpensive}
-            disabled={Boolean(savingKey)}
-            onChange={handleToggleSkipQuietExpensive}
-          />
+        {!compact && (
+          <p className="text-[11px] font-sans text-[#8B949E] leading-relaxed">
+            Limits how many 5m coins can enter the same direction in one 5-minute candle to prevent correlated crash drawdowns.
+          </p>
+        )}
+
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { val: 0 as const, label: 'OFF', spec: 'Unlimited', desc: 'All 7 coins can enter together.' },
+            { val: 3 as const, label: 'MAX 3 COINS', spec: 'Recommended', desc: 'Up to 3 same-side coins per 5m window.' },
+            { val: 2 as const, label: 'MAX 2 COINS', spec: 'Strict', desc: 'Up to 2 same-side coins per 5m window.' },
+          ]).map((opt) => {
+            const isSelected = maxSameDirCoins === opt.val;
+            const isBusy = savingKey === `coincap:${opt.val}`;
+            return (
+              <button
+                key={opt.val}
+                type="button"
+                disabled={Boolean(savingKey)}
+                onClick={() => handleSelectSameDirCoinCap(opt.val)}
+                className={cn(
+                  'text-left border p-2.5 transition-all rounded-xs cursor-pointer flex flex-col justify-between gap-1',
+                  isSelected
+                    ? 'bg-[#38BDF8]/10 border-[#38BDF8]/70 text-[#E1E4E8]'
+                    : 'bg-[#080A0C] border-[#1B2026] text-[#8B949E] hover:border-[#2A313A] hover:text-[#E1E4E8]',
+                  savingKey && !isBusy && 'opacity-60'
+                )}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[11px] font-bold uppercase text-[#E1E4E8]">{opt.label}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-semibold text-[#38BDF8]">{opt.spec}</span>
+                    {isBusy ? (
+                      <Loader2 className="h-3 w-3 animate-spin text-[#38BDF8]" />
+                    ) : isSelected ? (
+                      <CheckCircle2 className="h-3 w-3 text-[#38BDF8]" />
+                    ) : null}
+                  </div>
+                </div>
+                {!compact && (
+                  <p className="text-[10px] font-sans text-[#8B949E] leading-snug">{opt.desc}</p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Section 6: Orderbook Depth Guard (+2¢ live WS depth) */}
+      <div className="space-y-2 pt-2 border-t border-[#1B2026]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <BookOpen className="h-3.5 w-3.5 text-[#A78BFA]" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#E1E4E8]">
+              ORDERBOOK DEPTH GUARD (+2¢ LIVE WS)
+            </span>
+            <PresetInfoButton guide={PRESET_HELP_GUIDES.depth_guard} accentClassName="text-[#A78BFA]" />
+          </div>
+          <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 border border-[#1B2026] bg-[#080A0C] text-[#8B949E] rounded-xs">
+            ACTIVE:{' '}
+            <span className="text-[#A78BFA]">
+              {orderbookDepthMode === 'off' ? 'OFF' : orderbookDepthMode === 'cap_size' ? 'CAP SIZE' : 'STRICT SKIP'}
+            </span>
+          </span>
+        </div>
+
+        {!compact && (
+          <p className="text-[11px] font-sans text-[#8B949E] leading-relaxed">
+            Checks in-memory Polymarket ask depth within +2¢ (zero added latency) and clamps fill limits to fair value minus min edge.
+          </p>
+        )}
+
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { val: 'off' as const, label: 'OFF', spec: 'Ignore Book', desc: 'Always fire full target shares.' },
+            { val: 'cap_size' as const, label: 'CAP SIZE', spec: 'Recommended', desc: 'Shrinks order to live +2¢ depth (skips <5sh).' },
+            { val: 'strict_skip' as const, label: 'STRICT SKIP', spec: 'Full Only', desc: 'Skips trade unless +2¢ depth covers full target.' },
+          ]).map((opt) => {
+            const isSelected = orderbookDepthMode === opt.val;
+            const isBusy = savingKey === `depth:${opt.val}`;
+            return (
+              <button
+                key={opt.val}
+                type="button"
+                disabled={Boolean(savingKey)}
+                onClick={() => handleSelectDepthMode(opt.val)}
+                className={cn(
+                  'text-left border p-2.5 transition-all rounded-xs cursor-pointer flex flex-col justify-between gap-1',
+                  isSelected
+                    ? 'bg-[#A78BFA]/10 border-[#A78BFA]/70 text-[#E1E4E8]'
+                    : 'bg-[#080A0C] border-[#1B2026] text-[#8B949E] hover:border-[#2A313A] hover:text-[#E1E4E8]',
+                  savingKey && !isBusy && 'opacity-60'
+                )}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[11px] font-bold uppercase text-[#E1E4E8]">{opt.label}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-semibold text-[#A78BFA]">{opt.spec}</span>
+                    {isBusy ? (
+                      <Loader2 className="h-3 w-3 animate-spin text-[#A78BFA]" />
+                    ) : isSelected ? (
+                      <CheckCircle2 className="h-3 w-3 text-[#A78BFA]" />
+                    ) : null}
+                  </div>
+                </div>
+                {!compact && (
+                  <p className="text-[10px] font-sans text-[#8B949E] leading-snug">{opt.desc}</p>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

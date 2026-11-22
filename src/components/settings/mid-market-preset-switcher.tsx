@@ -7,6 +7,8 @@ import { adminApi, settingsApi } from '@/lib/api';
 import { ROUTES } from '@/lib/constants';
 import { toast } from '@/context/toast-context';
 import { cn } from '@/lib/utils/cn';
+import { PRESET_HELP_GUIDES } from '@/lib/preset-help-content';
+import { PresetInfoButton } from './preset-info-button';
 import {
   MID_MARKET_PRESETS,
   MidMarketPreset,
@@ -61,11 +63,14 @@ export function MidMarketPresetSwitcher({
         <div className="flex items-center gap-2">
           <Sliders className="h-3.5 w-3.5 text-[#20B2AA] shrink-0" />
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#E1E4E8] block">
-              5M ENTRY PRESETS (1-CLICK SWITCHER)
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#E1E4E8]">
+                5M ENTRY PRESETS (1-CLICK SWITCHER)
+              </span>
+              <PresetInfoButton guide={PRESET_HELP_GUIDES.admin_5m} accentClassName="text-[#20B2AA]" />
+            </div>
             <span className="text-[10px] text-[#8B949E] block">
-              Applies to BTC, ETH, SOL &amp; DOGE 5m live immediately
+              Applies to all 7 5m markets (BTC, ETH, SOL, DOGE, BNB, XRP, HYPE) live immediately
             </span>
           </div>
         </div>

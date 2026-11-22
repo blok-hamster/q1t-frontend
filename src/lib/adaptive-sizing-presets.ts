@@ -42,10 +42,10 @@ export const ENTRY_GATE_PRESETS: Record<EntryGatePresetId, EntryGatePresetMeta> 
   high_volume: {
     id: 'high_volume',
     name: 'High-Volume Structured',
-    tagline: '~50 Trades/Day · Pullbacks Allowed',
+    tagline: 'Max Volume · Early-5D + Row 10',
     summary:
-      'Price-scaled z (1.15 / 1.22 / 1.30) with edge ≥3¢ and 135–180s mid-window floor $0.78, with Rising-Ask Lock OFF for maximum daily trade frequency.',
-    stats: '319W / 41L (88.6%) · +$2,547 Comp',
+      '1.25× vol / 1.15× floor, price-scaled z (1.15 / 1.22 / 1.25) with edge ≥2¢ at $0.86–$0.88, plus Stage 1 Early-5D entry (45–150s, $0.62–$0.82) when ≥3 coins break out together cleanly.',
+    stats: '128W / 0L Live Clean Books · 2.6× Mode A',
   },
 };
 

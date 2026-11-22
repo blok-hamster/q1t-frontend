@@ -182,8 +182,9 @@ export interface RiskConfig {
   adaptive_preset?: 'fixed' | 'conservative' | 'balanced' | 'growth' | 'custom';
   adaptive_base_pct?: number;
   concurrent_sizing_mode?: 'split' | 'double';
-  skip_quiet_expensive_enabled?: boolean;
   entry_gate_preset?: 'mode_a' | 'mode_b' | 'mode_c' | 'high_volume' | 'legacy';
+  max_same_dir_5m_coins?: 0 | 2 | 3;
+  orderbook_depth_mode?: 'off' | 'cap_size' | 'strict_skip';
 }
 
 export interface RiskConfigUpdateResponse {
