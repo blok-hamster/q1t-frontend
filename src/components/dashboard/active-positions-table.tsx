@@ -23,15 +23,18 @@ const ALL_MARKETS = [
 ];
 
 function formatDistance(asset: string, value: number): string {
-  if (asset === 'DOGE') return `$${value.toFixed(4)}`;
-  if (asset === 'SOL') return `$${value.toFixed(2)}`;
+  if (asset === 'DOGE' || asset === 'XRP') return `$${value.toFixed(4)}`;
+  if (asset === 'SOL' || asset === 'HYPE' || asset === 'BNB') return `$${value.toFixed(2)}`;
   if (asset === 'ETH') return `$${value.toFixed(1)}`;
   return `$${value.toFixed(0)}`;
 }
 
 function isDistanceSignificant(asset: string, value: number): boolean {
   if (asset === 'DOGE') return value >= 0.0002;
+  if (asset === 'XRP') return value >= 0.0015;
+  if (asset === 'HYPE') return value >= 0.03;
   if (asset === 'SOL') return value >= 0.10;
+  if (asset === 'BNB') return value >= 0.50;
   if (asset === 'ETH') return value >= 3;
   return value >= 25;
 }
@@ -272,16 +275,11 @@ export const ActivePositionsTable = memo(function ActivePositionsTable() {
     };
   }, [socket]);
 
-  // Filter markets: For Admins, show all admin-approved platform markets. For regular users, show user-selected markets (or open positions).
+  // Show all admin-approved platform markets for every user (plus any market with an open position).
   const visibleMarkets = ALL_MARKETS.filter((m) => {
     const hasOpenPos = markets[m.id]?.position != null;
     const isApprovedByAdmin = adminApprovedMarkets.length === 0 || adminApprovedMarkets.includes(m.id);
-    const isUserEnabled = enabledMarkets.includes(m.id) && isApprovedByAdmin;
-    const isEnabled = user?.isAdmin
-      ? (adminApprovedMarkets.length > 0 ? isApprovedByAdmin : true)
-      : (enabledMarkets.length > 0 ? isUserEnabled : isApprovedByAdmin);
-
-    return isEnabled || hasOpenPos;
+    return isApprovedByAdmin || hasOpenPos;
   });
 
   const openPositionsCount = ALL_MARKETS.filter(m => markets[m.id]?.position != null).length;

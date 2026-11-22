@@ -214,8 +214,8 @@ export function StrategySelectionPanel({
                 </span>
                 <p className="text-xs text-[#8B949E] mt-0.5">
                   {isAdmin
-                    ? 'Enable or disable each market for the mid-market strategy.'
-                    : 'Select which markets the mid-market strategy trades.'}
+                    ? 'Enable or disable each market for the mid-market strategy across all users.'
+                    : 'All admin-enabled markets are automatically active for your account.'}
                 </p>
               </div>
             </div>
@@ -271,35 +271,18 @@ export function StrategySelectionPanel({
                 }
 
                 return (
-                  <button
+                  <div
                     key={m.id}
-                    onClick={() => handleUserMarketToggle(m.id)}
-                    disabled={saving}
-                    className={cn(
-                      'p-2.5 border text-left transition-all cursor-pointer rounded-xs flex items-center justify-between',
-                      isUserActive
-                        ? 'bg-[#16191E] border-[#20B2AA]/50 text-[#E1E4E8]'
-                        : 'bg-[#080A0C] border-[#1B2026] text-[#8B949E] hover:border-[#2A313A] hover:text-[#E1E4E8]'
-                    )}
+                    className="p-2.5 border text-left rounded-xs flex items-center justify-between bg-[#16191E] border-[#20B2AA]/50 text-[#E1E4E8]"
                   >
                     <div>
                       <span className="font-mono text-xs font-bold block">{m.label}</span>
-                      <span
-                        className={cn(
-                          'text-[9px] font-bold uppercase block mt-0.5',
-                          isUserActive ? 'text-[#20B2AA]' : 'text-[#586069]'
-                        )}
-                      >
-                        {isUserActive ? '● ACTIVE' : '○ INACTIVE'}
+                      <span className="text-[9px] font-bold uppercase block mt-0.5 text-[#20B2AA]">
+                        ● ACTIVE
                       </span>
                     </div>
-                    <span
-                      className={cn(
-                        'w-2 h-2 rounded-full',
-                        isUserActive ? 'bg-[#20B2AA] animate-pulse' : 'bg-[#1B2026]'
-                      )}
-                    />
-                  </button>
+                    <span className="w-2 h-2 rounded-full bg-[#20B2AA] animate-pulse" />
+                  </div>
                 );
               })}
             </div>
