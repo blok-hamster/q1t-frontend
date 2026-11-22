@@ -92,6 +92,7 @@ export interface SettingsResponse {
   accountStatus: 'active' | 'suspended' | 'pending';
   auto_claim: boolean;
   vault_uuid: string | null;
+  paperBalance?: number;
 }
 
 export interface StrategySelection {
@@ -117,6 +118,22 @@ export interface MarketConfig {
   fair_value_sigma?: number;
   fair_value_stop_prob?: number;
   fair_value_stop_bid?: number;
+  fair_value_stop_enabled?: boolean;
+  // Model D v2 & v4: settlement-calibrated sigma, wait window & z-score gating
+  book_agreement_gap?: number;
+  max_entry_spread?: number;
+  max_fv_oracle_gap?: number;
+  book_crash_floor_enabled?: boolean;
+  book_crash_floor_bid?: number;
+  entry_min_elapsed_seconds?: number;
+  entry_max_elapsed_seconds?: number;
+  counter_trend_veto?: boolean;
+  first_impression_only?: boolean;
+  sigma_vol_multiplier?: number;
+  sigma_min_floor_ratio?: number;
+  high_conviction_z?: number;
+  high_conviction_min_edge?: number;
+  high_conviction_max_ask?: number;
   // Kronos volatility gating
   volatility_gate_enabled: boolean;
   min_kronos_spread: number;
@@ -162,11 +179,17 @@ export interface RiskConfig {
   use_adaptive_sizing?: boolean;
   adaptive_min_shares?: number;
   adaptive_max_shares?: number;
+  adaptive_preset?: 'fixed' | 'conservative' | 'balanced' | 'growth' | 'custom';
+  adaptive_base_pct?: number;
+  concurrent_sizing_mode?: 'split' | 'double';
+  skip_quiet_expensive_enabled?: boolean;
+  entry_gate_preset?: 'mode_a' | 'mode_b' | 'mode_c' | 'high_volume' | 'legacy';
 }
 
 export interface RiskConfigUpdateResponse {
   message: string;
   riskConfig: RiskConfig;
+  syncedMaxConcurrent?: number;
 }
 
 export interface MidMarketConfig {

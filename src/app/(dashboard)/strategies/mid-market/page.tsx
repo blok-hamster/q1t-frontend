@@ -3,17 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { settingsApi } from '@/lib/api';
+import { settingsApi, portfolioApi } from '@/lib/api';
 import { useSocket } from '@/context/socket-context';
 import { PolymarketStrikeChart } from '@/components/mid-market/polymarket-strike-chart';
 import { MobileChartWrapper } from '@/components/mid-market/mobile-chart-wrapper';
 import { MidMarketForecastBars } from '@/components/mid-market/mid-market-forecast-bars';
 import { MidMarketMonitor } from '@/components/dashboard/mid-market-monitor';
 import { MarketConfigPanel } from '@/components/settings/market-config-panel';
+import { AdaptiveSizingPresetSwitcher } from '@/components/settings/adaptive-sizing-preset-switcher';
 import { MobileBottomSheet } from '@/components/ui/mobile-bottom-sheet';
 import { Loading } from '@/components/ui/loading';
 import { toast } from '@/context/toast-context';
-import type { StrategySelection, MarketConfig } from '@/types/api';
+import type { StrategySelection, MarketConfig, RiskConfig } from '@/types/api';
 import { Settings, ChevronDown, ChevronUp, Activity, BarChart2, Sliders, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
@@ -26,6 +27,9 @@ const MARKET_LABELS: Record<string, { label: string; asset: string }> = {
   'sol-15m': { label: 'SOL 15m', asset: 'SOL' },
   'doge-5m': { label: 'DOGE 5m', asset: 'DOGE' },
   'doge-15m': { label: 'DOGE 15m', asset: 'DOGE' },
+  'bnb-5m': { label: 'BNB 5m', asset: 'BNB' },
+  'xrp-5m': { label: 'XRP 5m', asset: 'XRP' },
+  'hype-5m': { label: 'HYPE 5m', asset: 'HYPE' },
 };
 
 export default function MidMarketStrategyPage() {
@@ -38,6 +42,8 @@ export default function MidMarketStrategyPage() {
   const [loading, setLoading] = useState(true);
   const [strategy, setStrategy] = useState<StrategySelection | null>(null);
   const [marketConfigs, setMarketConfigs] = useState<MarketConfig[]>([]);
+  const [riskConfig, setRiskConfig] = useState<RiskConfig | null>(null);
+  const [balanceUsd, setBalanceUsd] = useState<number>(1000);
   const [selectedMarket, setSelectedMarket] = useState<string>('btc-5m');
   const [showConfig, setShowConfig] = useState<boolean>(true);
   const [mobileConfigOpen, setMobileConfigOpen] = useState<boolean>(false);
@@ -50,6 +56,8 @@ export default function MidMarketStrategyPage() {
     price_distance: number | null;
     up_price: number | null;
     down_price: number | null;
+    ask_up: number | null;
+    ask_down: number | null;
   } | null>(null);
 
   // Per-market activity indicator (pulse when data updating)
@@ -72,11 +80,22 @@ export default function MidMarketStrategyPage() {
     if (!socket) return;
 
     const handleUpdate = (data: any) => {
+      if (data?.type === 'heartbeat') return;
       const mt = (data?.market_type || 'btc-5m').toLowerCase();
       if (mt !== selectedMarket.toLowerCase()) return;
 
       const validPrice =
-        typeof data?.asset_price === 'number' && data.asset_price > 0 ? data.asset_price : null;
+        typeof data?.pm_price === 'number' && data.pm_price > 0
+          ? data.pm_price
+          : typeof data?.asset_price === 'number' && data.asset_price > 0
+            ? data.asset_price
+            : null;
+      const validDistance =
+        typeof data?.pm_price_distance === 'number'
+          ? data.pm_price_distance
+          : typeof data?.price_distance === 'number'
+            ? data.price_distance
+            : null;
 
       setStats((prev) => ({
         strike_price:
@@ -84,10 +103,11 @@ export default function MidMarketStrategyPage() {
             ? data.strike_price
             : prev?.strike_price ?? null,
         btc_price: validPrice ?? prev?.btc_price ?? null,
-        price_distance:
-          typeof data.price_distance === 'number' ? data.price_distance : prev?.price_distance ?? null,
+        price_distance: validDistance ?? prev?.price_distance ?? null,
         up_price: typeof data.up_price === 'number' ? data.up_price : prev?.up_price ?? null,
         down_price: typeof data.down_price === 'number' ? data.down_price : prev?.down_price ?? null,
+        ask_up: typeof data.ask_up === 'number' ? data.ask_up : prev?.ask_up ?? null,
+        ask_down: typeof data.ask_down === 'number' ? data.ask_down : prev?.ask_down ?? null,
       }));
     };
 
@@ -100,12 +120,22 @@ export default function MidMarketStrategyPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [stratRes, marketsRes] = await Promise.all([
+        const [stratRes, marketsRes, settingsRes, balRes] = await Promise.all([
           settingsApi.getStrategySelection(),
           settingsApi.getMarketConfigs(),
+          settingsApi.getSettings().catch(() => null),
+          portfolioApi.getBalances().catch(() => null),
         ]);
         setStrategy(stratRes.strategySelection);
         setMarketConfigs(marketsRes.marketConfigs || []);
+        if (settingsRes?.riskConfig) {
+          setRiskConfig(settingsRes.riskConfig);
+        }
+        const liveUsdc = balRes?.usdc && balRes.usdc > 0 ? balRes.usdc : 0;
+        const resolvedBal = settingsRes?.isActive && liveUsdc > 0
+          ? liveUsdc
+          : (settingsRes?.paperBalance ?? (liveUsdc > 0 ? liveUsdc : 1000));
+        setBalanceUsd(resolvedBal);
       } catch (err) {
         toast.error('Failed to load strategy settings');
       } finally {
@@ -266,8 +296,8 @@ export default function MidMarketStrategyPage() {
               strikePrice={stats?.strike_price ?? null}
               currentPrice={stats?.btc_price ?? null}
               priceDistance={stats?.price_distance ?? null}
-              upPrice={stats?.up_price ?? null}
-              downPrice={stats?.down_price ?? null}
+              upPrice={stats?.ask_up ?? stats?.up_price ?? null}
+              downPrice={stats?.ask_down ?? stats?.down_price ?? null}
             />
           </div>
 
@@ -277,8 +307,8 @@ export default function MidMarketStrategyPage() {
               strikePrice={stats?.strike_price ?? null}
               currentPrice={stats?.btc_price ?? null}
               priceDistance={stats?.price_distance ?? null}
-              upPrice={stats?.up_price ?? null}
-              downPrice={stats?.down_price ?? null}
+              upPrice={stats?.ask_up ?? stats?.up_price ?? null}
+              downPrice={stats?.ask_down ?? stats?.down_price ?? null}
               height={420}
             />
           </div>
@@ -297,6 +327,18 @@ export default function MidMarketStrategyPage() {
         <div className="hidden lg:block space-y-4">
           {/* Mid-Market Monitor */}
           <MidMarketMonitor enabled={isMidMarketActive} marketType={selectedMarket} />
+
+          {/* Model D v5 Sizing Presets, Concurrent Mode & Entry/Falling-Knife Presets */}
+          <AdaptiveSizingPresetSwitcher
+            riskConfig={riskConfig}
+            marketConfigs={marketConfigs}
+            balanceUsd={balanceUsd}
+            onRiskConfigUpdated={(nextRc, nextMcs) => {
+              setRiskConfig(nextRc);
+              if (nextMcs) setMarketConfigs(nextMcs);
+            }}
+            compact
+          />
 
           {/* Config Toggle Drawer Button */}
           <div className="bg-[#0F1215] border border-[#1B2026] p-3">
@@ -352,24 +394,36 @@ export default function MidMarketStrategyPage() {
         title={`CONFIGURE MID-MARKET — ${MARKET_LABELS[selectedMarket]?.label || selectedMarket}`}
         subtitle="RISK METRICS, SPREADS & POSITION SIZING"
       >
-        <MarketConfigPanel
-          marketType={selectedMarket}
-          isAdmin={user?.isAdmin}
-          userSelectedMarkets={strategy?.mid_market_markets || []}
-          isMidMarketActive={isMidMarketActive}
-          onToggleMarketActive={handleUserMarketToggle}
-          initialConfig={marketConfigs.find((c) => c.market_type === selectedMarket) || null}
-          onSave={(updatedConfig) => {
-            setMarketConfigs((prev) => {
-              const exists = prev.find((c) => c.market_type === selectedMarket);
-              if (exists) {
-                return prev.map((c) => (c.market_type === selectedMarket ? updatedConfig : c));
-              }
-              return [...prev, updatedConfig];
-            });
-            setMobileConfigOpen(false);
-          }}
-        />
+        <div className="space-y-4">
+          <AdaptiveSizingPresetSwitcher
+            riskConfig={riskConfig}
+            marketConfigs={marketConfigs}
+            balanceUsd={balanceUsd}
+            onRiskConfigUpdated={(nextRc, nextMcs) => {
+              setRiskConfig(nextRc);
+              if (nextMcs) setMarketConfigs(nextMcs);
+            }}
+            compact
+          />
+          <MarketConfigPanel
+            marketType={selectedMarket}
+            isAdmin={user?.isAdmin}
+            userSelectedMarkets={strategy?.mid_market_markets || []}
+            isMidMarketActive={isMidMarketActive}
+            onToggleMarketActive={handleUserMarketToggle}
+            initialConfig={marketConfigs.find((c) => c.market_type === selectedMarket) || null}
+            onSave={(updatedConfig) => {
+              setMarketConfigs((prev) => {
+                const exists = prev.find((c) => c.market_type === selectedMarket);
+                if (exists) {
+                  return prev.map((c) => (c.market_type === selectedMarket ? updatedConfig : c));
+                }
+                return [...prev, updatedConfig];
+              });
+              setMobileConfigOpen(false);
+            }}
+          />
+        </div>
       </MobileBottomSheet>
     </div>
   );

@@ -23,10 +23,17 @@ export const settingsApi = {
   },
 
   /**
-   * Update risk configuration
+   * Get user risk configuration
+   */
+  getRiskConfig: async (): Promise<{ riskConfig: RiskConfig }> => {
+    return api.get<{ riskConfig: RiskConfig }>(API_ENDPOINTS.SETTINGS_RISK_CONFIG);
+  },
+
+  /**
+   * Update risk configuration, adaptive presets & 5m concurrent mode
    */
   updateRiskConfig: async (
-    riskConfig: RiskConfig
+    riskConfig: Partial<RiskConfig> & { sync_5m_concurrent?: 1 | 2 }
   ): Promise<RiskConfigUpdateResponse> => {
     return api.post<RiskConfigUpdateResponse>(
       API_ENDPOINTS.SETTINGS_RISK_CONFIG,

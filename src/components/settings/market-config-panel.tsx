@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { settingsApi } from '@/lib/api';
+import { adminApi, settingsApi } from '@/lib/api';
+import { formatEdgeBadge } from '@/lib/mid-market-presets';
 import { toast } from '@/context/toast-context';
 import { Settings, Save, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react';
 import type { MarketConfig } from '@/types/api';
@@ -33,6 +34,9 @@ const MARKET_LABELS: Record<string, string> = {
   'sol-15m': 'SOL 15-Minute',
   'doge-5m': 'DOGE 5-Minute',
   'doge-15m': 'DOGE 15-Minute',
+  'bnb-5m': 'BNB 5-Minute',
+  'xrp-5m': 'XRP 5-Minute',
+  'hype-5m': 'HYPE 5-Minute',
 };
 
 const MARKET_SIGMA_DEFAULTS: Record<string, number> = {
@@ -44,12 +48,15 @@ const MARKET_SIGMA_DEFAULTS: Record<string, number> = {
   'sol-15m': 0.0011,
   'doge-5m': 0.0015,
   'doge-15m': 0.0015,
+  'bnb-5m': 0.00055,
+  'xrp-5m': 0.00065,
+  'hype-5m': 0.0008,
 };
 
 const DEFAULT_CONFIG: MarketConfig = {
   market_type: '',
   enabled: false,
-  entry_share_price: 0.65,
+  entry_share_price: 0.55,
   max_entry_price: 0.85,
   stop_loss_price: 0.42,
   num_shares: 25,
@@ -59,10 +66,18 @@ const DEFAULT_CONFIG: MarketConfig = {
   watch_start_seconds: 30,
   watch_end_seconds: 270,
   fair_value_enabled: true,
-  min_fair_value_edge: 0.04,
+  min_fair_value_edge: 0.99,
   fair_value_sigma: 0.0006,
   fair_value_stop_prob: 0.30,
   fair_value_stop_bid: 0.42,
+  entry_min_elapsed_seconds: 90,
+  entry_max_elapsed_seconds: 220,
+  first_impression_only: false,
+  sigma_vol_multiplier: 1.35,
+  sigma_min_floor_ratio: 1.2,
+  high_conviction_z: 1.0,
+  high_conviction_min_edge: 0.05,
+  high_conviction_max_ask: 0.85,
   volatility_gate_enabled: false,
   min_kronos_spread: 0.0003,
   fade_enabled: false,
@@ -86,6 +101,8 @@ function getTimeframeDefaults(marketType: string): Partial<MarketConfig> {
     return {
       watch_start_seconds: 60,
       watch_end_seconds: 870,
+      entry_min_elapsed_seconds: 60,
+      entry_max_elapsed_seconds: 700,
       cooldown_after_stop_seconds: 300,
       fair_value_sigma: sigma,
     };
@@ -93,6 +110,8 @@ function getTimeframeDefaults(marketType: string): Partial<MarketConfig> {
   return {
     watch_start_seconds: 30,
     watch_end_seconds: 270,
+    entry_min_elapsed_seconds: 90,
+    entry_max_elapsed_seconds: 220,
     cooldown_after_stop_seconds: 180,
     fair_value_sigma: sigma,
   };
@@ -164,9 +183,23 @@ export function MarketConfigPanel({
     try {
       const { market_type, ...updates } = config;
       const res = await settingsApi.updateMarketConfig(marketType, updates);
+      let latestAdminConfig: Partial<MarketConfig> = {};
+      if (isAdmin) {
+        // Keep num_shares & max_concurrent strictly per-user even when saving from an admin card
+        const { num_shares: _ns, max_concurrent: _mc, ...adminUpdates } = updates;
+        const adminRes = await adminApi.updateMarketConfig(marketType, adminUpdates);
+        latestAdminConfig = adminRes?.config || {};
+      }
       toast.success(`${MARKET_LABELS[marketType] || marketType} config saved`);
       setHasChanges(false);
-      const merged = { ...config, ...res.marketConfig, market_type: marketType };
+      const merged = {
+        ...config,
+        ...res.marketConfig,
+        ...latestAdminConfig,
+        ...(res.marketConfig?.num_shares !== undefined ? { num_shares: res.marketConfig.num_shares } : {}),
+        ...(res.marketConfig?.max_concurrent !== undefined ? { max_concurrent: res.marketConfig.max_concurrent } : {}),
+        market_type: marketType,
+      };
       setConfig(merged);
       onSave?.(merged);
     } catch (error: any) {
@@ -209,7 +242,7 @@ export function MarketConfigPanel({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="success">
-              FV +{(minFvEdge * 100).toFixed(1)}¢
+              {formatEdgeBadge(config)}
             </Badge>
             {isAdmin ? (
               <Switch
@@ -414,31 +447,166 @@ export function MarketConfigPanel({
               </div>
             </div>
 
-            {/* Min Post-Fee Edge */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label htmlFor={`${baseId}-fv-edge`} className="text-sm font-medium text-text-primary">
-                  Min Post-Fee Edge
-                </label>
-                <span className="text-sm font-mono font-semibold text-positive tabular-nums">
-                  +{(minFvEdge * 100).toFixed(1)}¢
-                </span>
+            {/* Entry Trigger Mode: z-Score Conviction (v4) vs Pure Post-Fee Edge */}
+            {minFvEdge >= 0.95 ? (
+              <div className="space-y-3 p-3 bg-bg-tertiary/60 border border-border-primary rounded-md">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-accent-primary uppercase tracking-wide">
+                    z-Score Conviction Gate (v4)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => update('min_fair_value_edge', 0.04)}
+                    className="text-[10px] text-text-tertiary hover:text-text-primary underline cursor-pointer"
+                  >
+                    Use Edge Mode
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor={`${baseId}-conv-z`} className="text-[11px] text-text-secondary">
+                        Min z
+                      </label>
+                      <span className="text-[11px] font-mono font-semibold text-positive tabular-nums">
+                        {(config.high_conviction_z ?? 1.0).toFixed(1)}
+                      </span>
+                    </div>
+                    <Slider
+                      id={`${baseId}-conv-z`}
+                      name="high_conviction_z"
+                      showValue={false}
+                      min={5}
+                      max={25}
+                      step={1}
+                      value={Math.round((config.high_conviction_z ?? 1.0) * 10)}
+                      onChange={(v) => update('high_conviction_z', v / 10)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor={`${baseId}-conv-edge`} className="text-[11px] text-text-secondary">
+                        Min Edge
+                      </label>
+                      <span className="text-[11px] font-mono font-semibold text-positive tabular-nums">
+                        +{Math.round((config.high_conviction_min_edge ?? 0.05) * 100)}¢
+                      </span>
+                    </div>
+                    <Slider
+                      id={`${baseId}-conv-edge`}
+                      name="high_conviction_min_edge"
+                      showValue={false}
+                      min={0}
+                      max={15}
+                      step={1}
+                      value={Math.round((config.high_conviction_min_edge ?? 0.05) * 100)}
+                      onChange={(v) => update('high_conviction_min_edge', v / 100)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor={`${baseId}-conv-ask`} className="text-[11px] text-text-secondary">
+                        Conv Max
+                      </label>
+                      <span className="text-[11px] font-mono font-semibold text-accent-primary tabular-nums">
+                        ${(config.high_conviction_max_ask ?? maxAsk).toFixed(2)}
+                      </span>
+                    </div>
+                    <Slider
+                      id={`${baseId}-conv-ask`}
+                      name="high_conviction_max_ask"
+                      showValue={false}
+                      min={55}
+                      max={95}
+                      step={1}
+                      value={Math.round((config.high_conviction_max_ask ?? maxAsk) * 100)}
+                      onChange={(v) => update('high_conviction_max_ask', v / 100)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor={`${baseId}-entry-min-sec`} className="text-[11px] text-text-secondary">
+                        Entry Start
+                      </label>
+                      <span className="text-[11px] font-mono text-text-primary tabular-nums">
+                        {config.entry_min_elapsed_seconds ?? 90}s
+                      </span>
+                    </div>
+                    <Slider
+                      id={`${baseId}-entry-min-sec`}
+                      name="entry_min_elapsed_seconds"
+                      showValue={false}
+                      min={15}
+                      max={isInterval15m ? 600 : 180}
+                      step={5}
+                      value={config.entry_min_elapsed_seconds ?? 90}
+                      onChange={(v) => update('entry_min_elapsed_seconds', v)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor={`${baseId}-entry-max-sec`} className="text-[11px] text-text-secondary">
+                        Entry End
+                      </label>
+                      <span className="text-[11px] font-mono text-text-primary tabular-nums">
+                        {config.entry_max_elapsed_seconds ?? 220}s
+                      </span>
+                    </div>
+                    <Slider
+                      id={`${baseId}-entry-max-sec`}
+                      name="entry_max_elapsed_seconds"
+                      showValue={false}
+                      min={60}
+                      max={isInterval15m ? 870 : 270}
+                      step={5}
+                      value={config.entry_max_elapsed_seconds ?? 220}
+                      onChange={(v) => update('entry_max_elapsed_seconds', v)}
+                    />
+                  </div>
+                </div>
               </div>
-              <Slider
-                id={`${baseId}-fv-edge`}
-                name="min_fair_value_edge"
-                showValue={false}
-                min={10}
-                max={120}
-                step={5}
-                value={Math.round(minFvEdge * 1000)}
-                onChange={(v) => update('min_fair_value_edge', v / 1000)}
-                aria-describedby={`${baseId}-fv-edge-hint`}
-              />
-              <p id={`${baseId}-fv-edge-hint`} className="text-xs text-text-tertiary">
-                Requires Black-Scholes fair probability minus ask minus Polymarket taker fee to exceed this threshold.
-              </p>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor={`${baseId}-fv-edge`} className="text-sm font-medium text-text-primary">
+                    Min Post-Fee Edge
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => update('min_fair_value_edge', 0.99)}
+                      className="text-[10px] text-text-tertiary hover:text-accent-primary underline cursor-pointer"
+                    >
+                      Use z-Gate
+                    </button>
+                    <span className="text-sm font-mono font-semibold text-positive tabular-nums">
+                      +{(minFvEdge * 100).toFixed(1)}¢
+                    </span>
+                  </div>
+                </div>
+                <Slider
+                  id={`${baseId}-fv-edge`}
+                  name="min_fair_value_edge"
+                  showValue={false}
+                  min={10}
+                  max={120}
+                  step={5}
+                  value={Math.min(120, Math.round(minFvEdge * 1000))}
+                  onChange={(v) => update('min_fair_value_edge', v / 1000)}
+                  aria-describedby={`${baseId}-fv-edge-hint`}
+                />
+                <p id={`${baseId}-fv-edge-hint`} className="text-xs text-text-tertiary">
+                  Requires Black-Scholes fair probability minus ask minus Polymarket taker fee to exceed this threshold.
+                </p>
+              </div>
+            )}
 
             {/* Shares */}
             <div className="space-y-2">

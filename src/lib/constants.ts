@@ -52,6 +52,7 @@ export const API_ENDPOINTS = {
   SETTINGS_AI_V2_MARKET: (marketType: string) => `/api/settings/ai-v2/${marketType}`,
   MARKETS_AVAILABLE: '/api/market/available',
   MARKET_STATUS: (marketType: string) => `/api/market/${marketType}/status`,
+  MARKET_PRICE_HISTORY: (marketType: string) => `/api/market/${marketType}/price-history`,
 
   // Predictions
   PREDICTIONS_CURRENT: '/api/predictions/current',

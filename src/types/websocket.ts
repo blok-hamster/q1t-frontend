@@ -38,6 +38,7 @@ export interface MidMarketState {
   type: 'price_tick' | 'entry' | 'stop_sell' | 'stop_loss' | 'window_start' | 'window_end' | 'outcome' | 'heartbeat';
   market_type?: string;
   asset_price?: number;
+  pm_price?: number | null;
   up_price: number | null;
   down_price: number | null;
   ask_up?: number | null;
@@ -56,6 +57,7 @@ export interface MidMarketState {
   btc_price: number;
   strike_price: number;
   price_distance: number;
+  pm_price_distance?: number | null;
   position: MidMarketPosition | null;
   window_start_ts: number;
   window_end_ts: number;

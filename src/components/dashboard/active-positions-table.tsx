@@ -17,6 +17,9 @@ const ALL_MARKETS = [
   { id: 'sol-15m', asset: 'SOL', window: '15m' },
   { id: 'doge-5m', asset: 'DOGE', window: '5m' },
   { id: 'doge-15m', asset: 'DOGE', window: '15m' },
+  { id: 'bnb-5m', asset: 'BNB', window: '5m' },
+  { id: 'xrp-5m', asset: 'XRP', window: '5m' },
+  { id: 'hype-5m', asset: 'HYPE', window: '5m' },
 ];
 
 function formatDistance(asset: string, value: number): string {

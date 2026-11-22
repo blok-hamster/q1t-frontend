@@ -5,8 +5,9 @@ import { useAuth } from '@/context/auth-context';
 import { settingsApi } from '@/lib/api';
 import { toast } from '@/context/toast-context';
 import { Zap, TrendingUp, ShieldCheck, Lock } from 'lucide-react';
-import type { StrategySelection, MarketConfig, AiV2Config } from '@/types/api';
+import type { StrategySelection, MarketConfig, AiV2Config, RiskConfig } from '@/types/api';
 import { cn } from '@/lib/utils/cn';
+import { AdaptiveSizingPresetSwitcher } from './adaptive-sizing-preset-switcher';
 
 const SUPPORTED_MARKETS = [
   { id: 'btc-5m', label: 'BTC 5m', asset: 'BTC' },
@@ -17,6 +18,9 @@ const SUPPORTED_MARKETS = [
   { id: 'sol-15m', label: 'SOL 15m', asset: 'SOL' },
   { id: 'doge-5m', label: 'DOGE 5m', asset: 'DOGE' },
   { id: 'doge-15m', label: 'DOGE 15m', asset: 'DOGE' },
+  { id: 'bnb-5m', label: 'BNB 5m', asset: 'BNB' },
+  { id: 'xrp-5m', label: 'XRP 5m', asset: 'XRP' },
+  { id: 'hype-5m', label: 'HYPE 5m', asset: 'HYPE' },
 ];
 
 const STRATEGIES = [
@@ -31,10 +35,22 @@ const STRATEGIES = [
 interface Props {
   initialStrategy: StrategySelection;
   marketConfigs: MarketConfig[];
+  riskConfig?: RiskConfig | null;
+  balanceUsd?: number;
   onUpdate: (strategy: StrategySelection) => void;
+  onMarketConfigsUpdate?: (configs: MarketConfig[]) => void;
+  onRiskConfigUpdate?: (riskConfig: RiskConfig, nextMarketConfigs?: MarketConfig[]) => void;
 }
 
-export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdate }: Props) {
+export function StrategySelectionPanel({
+  initialStrategy,
+  marketConfigs,
+  riskConfig,
+  balanceUsd,
+  onUpdate,
+  onMarketConfigsUpdate,
+  onRiskConfigUpdate,
+}: Props) {
   const { user } = useAuth();
   const isAdmin = user?.isAdmin ?? false;
 
@@ -190,7 +206,7 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
 
         {/* Market Selection Section */}
         {showMidMarketMarkets && (
-          <div className="pt-4 border-t border-[#1B2026] space-y-3">
+          <div className="pt-4 border-t border-[#1B2026] space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold text-[#586069] uppercase tracking-[0.12em] block">
@@ -288,6 +304,22 @@ export function StrategySelectionPanel({ initialStrategy, marketConfigs, onUpdat
               })}
             </div>
           </div>
+        )}
+
+        {/* Adaptive Sizing, Concurrent 5m Order Mode & Quiet-Floor Skip Filter (available to ALL users) */}
+        {activeStrategies.includes('mid_market') && (
+          <AdaptiveSizingPresetSwitcher
+            riskConfig={riskConfig}
+            marketConfigs={configs}
+            balanceUsd={balanceUsd}
+            onRiskConfigUpdated={(nextRc, nextMcs) => {
+              if (nextMcs) {
+                setConfigs(nextMcs);
+                onMarketConfigsUpdate?.(nextMcs);
+              }
+              onRiskConfigUpdate?.(nextRc, nextMcs);
+            }}
+          />
         )}
       </div>
     </div>

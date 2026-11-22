@@ -134,6 +134,7 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({
     if (!socket) return;
 
     const handler = (data: MidMarketState) => {
+      if (data.type === 'heartbeat') return;
       const mt = data.market_type || 'btc-5m';
       if (mt !== marketTypeRef.current) return;
       lastEventRef.current = Date.now();
@@ -201,8 +202,9 @@ export const MidMarketMonitor = memo(function MidMarketMonitor({
       if (data.fv_stop_bid != null) setFvStopBid(data.fv_stop_bid);
 
       if (data.strike_price != null) setStrikePrice((prev) => (prev === data.strike_price ? prev : data.strike_price));
-      if (data.price_distance != null) {
-        const d = Math.round(data.price_distance * 10) / 10;
+      const effectiveDist = data.pm_price_distance ?? data.price_distance;
+      if (effectiveDist != null) {
+        const d = Math.round(effectiveDist * 10) / 10;
         setPriceDistance((prev) => (prev === d ? prev : d));
       }
 

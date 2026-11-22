@@ -12,6 +12,7 @@ import {
   IPriceLine,
 } from 'lightweight-charts';
 import { useSocket } from '@/context/socket-context';
+import { marketApi } from '@/lib/api/market';
 import { cn } from '@/lib/utils/cn';
 import { formatCurrency } from '@/lib/utils/format';
 import type { Candle } from '@/types/market';
@@ -47,10 +48,14 @@ export function PolymarketStrikeChart({
   const lineSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const priceLineRef = useRef<IPriceLine | null>(null);
-  const isInitializedRef = useRef(false);
+  const isLineInitializedRef = useRef(false);
+  const isCandleInitializedRef = useRef(false);
   const lastMidMarketTickRef = useRef(0);
+  const latestStrikeRef = useRef<number | null>(null);
 
   const [viewMode, setViewMode] = useState<'line' | 'candlestick'>('line');
+  const viewModeRef = useRef(viewMode);
+  viewModeRef.current = viewMode;
   const [timeframe, setTimeframe] = useState<'5m' | '15m' | '1h' | '1d'>('5m');
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [historyData, setHistoryData] = useState<{ time: number; value: number }[]>([]);
@@ -63,8 +68,7 @@ export function PolymarketStrikeChart({
 
   const asset = marketType.split('-')[0].toUpperCase();
   const symbol = `${asset}USDT`;
-  const defaultPriceForAsset =
-    asset === 'ETH' ? 3200 : asset === 'SOL' ? 185 : asset === 'DOGE' ? 0.12 : 69420;
+  latestStrikeRef.current = strikePrice || liveStrikePrice || null;
 
   const marketTimeframe = (marketType.split('-')[1] as '5m' | '15m') || '5m';
 
@@ -78,7 +82,9 @@ export function PolymarketStrikeChart({
     setLiveDownPrice(null);
     setLivePriceDistance(null);
     setTimeframe(marketTimeframe);
-    isInitializedRef.current = false;
+    isLineInitializedRef.current = false;
+    isCandleInitializedRef.current = false;
+    lastMidMarketTickRef.current = 0;
 
     if (lineSeriesRef.current) {
       try { lineSeriesRef.current.setData([]); } catch (e) {}
@@ -101,9 +107,61 @@ export function PolymarketStrikeChart({
     }
   }, [propCurrentPrice, asset, currentPrice]);
 
-  // Fetch real Binance historical OHLCV candles for the target asset (BTCUSDT, ETHUSDT, SOLUSDT, DOGEUSDT)
+  // Seed Trajectory ('line') mode from Polymarket's 60s Chainlink TWAP history
   useEffect(() => {
     let isCancelled = false;
+
+    const fetchPolymarketHistory = async () => {
+      try {
+        const points = await marketApi.getPriceHistory(marketType);
+        if (isCancelled || !Array.isArray(points) || points.length === 0) return;
+
+        const sorted = [...points].sort((a, b) => a.time - b.time);
+        const uniqueData: LineData<Time>[] = [];
+        let lastTime = 0;
+        for (const pt of sorted) {
+          if (pt.time > lastTime && pt.value > 0) {
+            uniqueData.push({ time: pt.time as Time, value: pt.value });
+            lastTime = pt.time;
+          }
+        }
+        if (uniqueData.length === 0) return;
+
+        setHistoryData(
+          uniqueData.map((pt) => ({ time: Number(pt.time), value: pt.value }))
+        );
+
+        const latestTwap = uniqueData[uniqueData.length - 1]?.value;
+        if (latestTwap && latestTwap > 0 && lastMidMarketTickRef.current === 0) {
+          setCurrentPrice(latestTwap);
+        }
+
+        if (lineSeriesRef.current) {
+          lineSeriesRef.current.setData(uniqueData);
+          isLineInitializedRef.current = true;
+
+          if (chartRef.current && viewModeRef.current === 'line') {
+            chartRef.current.priceScale('right').applyOptions({ autoScale: true });
+            chartRef.current.timeScale().fitContent();
+          }
+        }
+      } catch {
+        // Leave Trajectory empty until live pm_price ticks arrive (never synthesize fake prices)
+      }
+    };
+
+    fetchPolymarketHistory();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [marketType]);
+
+  // Fetch Binance OHLCV candles ONLY for Candlestick view without mutating Trajectory or live displayed price
+  useEffect(() => {
+    if (viewMode !== 'candlestick') return;
+    let isCancelled = false;
+    isCandleInitializedRef.current = false;
 
     const fetchBinanceKlines = async () => {
       try {
@@ -126,21 +184,9 @@ export function PolymarketStrikeChart({
           is_closed: true,
         }));
 
-        const trajectoryPoints = parsedCandles.map((c) => ({
-          time: Math.floor(new Date(c.timestamp).getTime() / 1000),
-          value: c.close,
-        }));
-
         setFetchedCandles(parsedCandles);
-        setHistoryData(trajectoryPoints);
 
-        const latestPrice = parsedCandles[parsedCandles.length - 1]?.close;
-        if (latestPrice && latestPrice > 0) {
-          setCurrentPrice(latestPrice);
-        }
-
-        // Directly populate Lightweight Charts series and reset price scale autoScale for immediate graph rendering
-        if (lineSeriesRef.current && candleSeriesRef.current) {
+        if (candleSeriesRef.current) {
           const formattedCandles: CandlestickData<Time>[] = parsedCandles.map((c) => ({
             time: (new Date(c.timestamp).getTime() / 1000) as Time,
             open: c.open,
@@ -149,34 +195,15 @@ export function PolymarketStrikeChart({
             close: c.close,
           }));
           candleSeriesRef.current.setData(formattedCandles);
-
-          const lineData: LineData<Time>[] = parsedCandles.map((c) => ({
-            time: (new Date(c.timestamp).getTime() / 1000) as Time,
-            value: c.close,
-          }));
-          lineSeriesRef.current.setData(lineData);
-          isInitializedRef.current = true;
+          isCandleInitializedRef.current = true;
 
           if (chartRef.current) {
             chartRef.current.priceScale('right').applyOptions({ autoScale: true });
             chartRef.current.timeScale().fitContent();
           }
         }
-      } catch (err) {
-        if (isCancelled) return;
-        // Fallback: seed synthetic curve for the specific asset if API fetch is unavailable
-        const effectiveStrike = strikePrice || liveStrikePrice || defaultPriceForAsset;
-        const nowSec = Math.floor(Date.now() / 1000);
-        const initialPoints: { time: number; value: number }[] = [];
-        for (let i = 40; i >= 0; i--) {
-          const time = nowSec - i * 30;
-          const variation =
-            (Math.sin(i * 0.4) * 0.0015 + (Math.random() - 0.5) * 0.0008) * effectiveStrike;
-          const value = Math.round((effectiveStrike + variation) * 100) / 100;
-          initialPoints.push({ time, value });
-        }
-        setHistoryData(initialPoints);
-        setCurrentPrice(effectiveStrike);
+      } catch {
+        // Ignore candle fetch error; Trajectory uses Polymarket TWAP60
       }
     };
 
@@ -185,7 +212,7 @@ export function PolymarketStrikeChart({
     return () => {
       isCancelled = true;
     };
-  }, [marketType, symbol, timeframe, marketTimeframe, strikePrice, liveStrikePrice, defaultPriceForAsset]);
+  }, [viewMode, symbol, timeframe, marketTimeframe]);
 
   // Listen to Socket feeds and strictly filter for current marketType
   useEffect(() => {
@@ -198,18 +225,28 @@ export function PolymarketStrikeChart({
       setCurrentPrice(price);
 
       // Append to lightweight chart directly via update() — avoids full setData re-render
-      if (lineSeriesRef.current && isInitializedRef.current) {
+      if (lineSeriesRef.current) {
         const newPoint = { time: nowSec as Time, value: price };
-        try {
-          lineSeriesRef.current.update(newPoint);
-        } catch (e) {
-          // Lightweight charts throws if time goes backwards; safe to ignore
+        if (!isLineInitializedRef.current) {
+          try {
+            lineSeriesRef.current.setData([newPoint]);
+            isLineInitializedRef.current = true;
+          } catch {
+            // ignore
+          }
+        } else {
+          try {
+            lineSeriesRef.current.update(newPoint);
+          } catch {
+            // Lightweight charts throws if time goes backwards; safe to ignore
+          }
         }
       }
     };
 
     // Engine mid_market_update — SOLE AUTHORITATIVE SOURCE for all markets (btc-5m, btc-15m, eth-5m, eth-15m, sol-5m, doge-5m)
     const handleMidMarket = (data: any) => {
+      if (data?.type === 'heartbeat') return;
       const mt = (data?.market_type || 'btc-5m').toLowerCase();
       if (mt !== marketType.toLowerCase()) return;
 
@@ -217,17 +254,34 @@ export function PolymarketStrikeChart({
       if (typeof data.strike_price === 'number' && data.strike_price > 0) {
         setLiveStrikePrice(data.strike_price);
       }
-      if (typeof data.up_price === 'number' && data.up_price >= 0) {
-        setLiveUpPrice(data.up_price);
+      const nextUp =
+        typeof data.ask_up === 'number' && data.ask_up >= 0
+          ? data.ask_up
+          : data.up_price;
+      if (typeof nextUp === 'number' && nextUp >= 0) {
+        setLiveUpPrice(nextUp);
       }
-      if (typeof data.down_price === 'number' && data.down_price >= 0) {
-        setLiveDownPrice(data.down_price);
+      const nextDown =
+        typeof data.ask_down === 'number' && data.ask_down >= 0
+          ? data.ask_down
+          : data.down_price;
+      if (typeof nextDown === 'number' && nextDown >= 0) {
+        setLiveDownPrice(nextDown);
       }
-      if (typeof data.price_distance === 'number') {
-        setLivePriceDistance(data.price_distance);
+      const nextDistance =
+        typeof data.pm_price_distance === 'number'
+          ? data.pm_price_distance
+          : data.price_distance;
+      if (typeof nextDistance === 'number') {
+        setLivePriceDistance(nextDistance);
       }
 
-      const price = typeof data?.asset_price === 'number' && data.asset_price > 0 ? data.asset_price : null;
+      const price =
+        typeof data?.pm_price === 'number' && data.pm_price > 0
+          ? data.pm_price
+          : typeof data?.asset_price === 'number' && data.asset_price > 0
+            ? data.asset_price
+            : null;
       if (price && price > 0) {
         lastMidMarketTickRef.current = Date.now();
         appendLiveTick(price);
@@ -246,9 +300,9 @@ export function PolymarketStrikeChart({
   const effectiveDownPrice = downPrice ?? liveDownPrice;
   const effectivePriceDistance = priceDistance ?? livePriceDistance;
 
-  const activePrice = currentPrice || propCurrentPrice || effectiveStrikePrice || defaultPriceForAsset;
+  const activePrice = currentPrice ?? propCurrentPrice ?? effectiveStrikePrice ?? null;
   const isAboveStrike =
-    effectiveStrikePrice != null ? activePrice >= effectiveStrikePrice : true;
+    activePrice != null && effectiveStrikePrice != null ? activePrice >= effectiveStrikePrice : true;
   const lineColor = isAboveStrike ? '#20B2AA' : '#E55353';
 
   // Initialize Lightweight Chart ONCE with responsive height — DO NOT include lineColor in deps to avoid chart re-creation loop
@@ -382,35 +436,9 @@ export function PolymarketStrikeChart({
     }
   }, [effectiveStrikePrice]);
 
-  // Seed Lightweight Charts Series with historical data — RUNS ONCE per market/timeframe load
+  // Seed Lightweight Charts Series independently for Trajectory vs Candles — NEVER overwrite Trajectory with Binance candles
   useEffect(() => {
-    if (!lineSeriesRef.current || !candleSeriesRef.current) return;
-    // Skip if already initialized — live updates use series.update() directly
-    if (isInitializedRef.current) return;
-
-    const activeCandles = propCandles.length > 0 ? propCandles : fetchedCandles;
-
-    if (activeCandles && activeCandles.length > 0) {
-      const formattedCandles: CandlestickData<Time>[] = activeCandles.map((c) => ({
-        time: (new Date(c.timestamp).getTime() / 1000) as Time,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-      }));
-      candleSeriesRef.current.setData(formattedCandles);
-
-      const lineData: LineData<Time>[] = activeCandles.map((c) => ({
-        time: (new Date(c.timestamp).getTime() / 1000) as Time,
-        value: c.close,
-      }));
-      lineSeriesRef.current.setData(lineData);
-      isInitializedRef.current = true;
-
-      if (chartRef.current) {
-        chartRef.current.timeScale().fitContent();
-      }
-    } else if (historyData.length > 0) {
+    if (lineSeriesRef.current && !isLineInitializedRef.current && historyData.length > 0) {
       const sorted = [...historyData].sort((a, b) => a.time - b.time);
       const uniqueData: LineData<Time>[] = [];
       let lastTime = 0;
@@ -422,20 +450,41 @@ export function PolymarketStrikeChart({
       }
       if (uniqueData.length > 0) {
         lineSeriesRef.current.setData(uniqueData);
-        isInitializedRef.current = true;
+        isLineInitializedRef.current = true;
 
-        if (chartRef.current) {
+        if (chartRef.current && viewMode === 'line') {
           chartRef.current.timeScale().fitContent();
         }
       }
     }
-  }, [propCandles, fetchedCandles, historyData]);
+
+    const activeCandles = propCandles.length > 0 ? propCandles : fetchedCandles;
+    if (candleSeriesRef.current && !isCandleInitializedRef.current && activeCandles.length > 0) {
+      const formattedCandles: CandlestickData<Time>[] = activeCandles.map((c) => ({
+        time: (new Date(c.timestamp).getTime() / 1000) as Time,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }));
+      candleSeriesRef.current.setData(formattedCandles);
+      isCandleInitializedRef.current = true;
+
+      if (chartRef.current && viewMode === 'candlestick') {
+        chartRef.current.timeScale().fitContent();
+      }
+    }
+  }, [propCandles, fetchedCandles, historyData, viewMode]);
 
   // Distance metrics calculation
   const delta =
-    effectiveStrikePrice != null ? activePrice - effectiveStrikePrice : effectivePriceDistance ?? 0;
+    activePrice != null && effectiveStrikePrice != null
+      ? activePrice - effectiveStrikePrice
+      : effectivePriceDistance ?? null;
   const deltaPct =
-    effectiveStrikePrice && effectiveStrikePrice > 0 ? (delta / effectiveStrikePrice) * 100 : 0;
+    delta != null && effectiveStrikePrice && effectiveStrikePrice > 0
+      ? (delta / effectiveStrikePrice) * 100
+      : null;
 
   return (
     <div className={cn('bg-[#0F1215] border border-[#1B2026] select-none', className)}>
@@ -452,9 +501,9 @@ export function PolymarketStrikeChart({
           </div>
           <div className="flex items-baseline gap-3 mt-1">
             <span className="font-mono text-xl font-bold text-[#E1E4E8] tabular-nums">
-              {activePrice ? formatCurrency(activePrice) : '—'}
+              {activePrice != null ? formatCurrency(activePrice) : '—'}
             </span>
-            {effectiveStrikePrice != null && (
+            {effectiveStrikePrice != null && delta != null && deltaPct != null && (
               <span
                 className={cn(
                   'font-mono text-xs font-bold tabular-nums px-2 py-0.5 border rounded-xs',

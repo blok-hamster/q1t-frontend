@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { adminApi } from '@/lib/api';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { MidMarketPresetSwitcher } from '@/components/settings/mid-market-preset-switcher';
+import { formatEdgeBadge } from '@/lib/mid-market-presets';
 import { toast } from '@/context/toast-context';
 import { RefreshCw, Save, FileText, CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
 
@@ -27,20 +29,31 @@ export default function AdminMarketConfigsPage() {
   const [results, setResults] = useState<{ market_type: string; mode: string; fields: number }[] | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
 
-  const loadConfigs = useCallback(async () => {
+  const loadConfigs = useCallback(async (silent = false) => {
     setLoading(true);
     try {
       const data = await adminApi.getMarketConfigs();
       const configs = (data.configs || []).map(stripSystemFields);
       setJsonText(JSON.stringify(configs, null, 2));
       setParseError(null);
-      toast.success(`Loaded ${configs.length} market configs`);
+      if (!silent) {
+        toast.success(`Loaded ${configs.length} market configs`);
+      }
     } catch (error: any) {
       toast.error(error.message || 'Failed to load market configs');
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const parsedConfigs = useMemo(() => {
+    try {
+      const arr = JSON.parse(jsonText);
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }, [jsonText]);
 
   useEffect(() => {
     loadConfigs();
@@ -126,7 +139,7 @@ export default function AdminMarketConfigsPage() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outlined" size="sm" onClick={loadConfigs} disabled={loading}>
+          <Button variant="outlined" size="sm" onClick={() => loadConfigs()} disabled={loading}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Reload
           </Button>
@@ -148,42 +161,42 @@ export default function AdminMarketConfigsPage() {
         </div>
       </div>
 
+      {/* Quick 5m Strategy Presets (Option A / Option B) */}
+      <MidMarketPresetSwitcher
+        configs={parsedConfigs}
+        onApplied={async () => {
+          setResults(null);
+          await loadConfigs(true);
+        }}
+      />
+
       {/* Per-market quick summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {(() => {
-          try {
-            const arr = JSON.parse(jsonText);
-            return Array.isArray(arr) ? arr.map((c) => (
-              <div key={c?.market_type} className="bg-bg-tertiary border border-border rounded-lg p-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold font-mono text-text-primary truncate">{c?.market_type}</span>
-                  <span className={`text-[10px] uppercase ${c?.enabled ? 'text-positive' : 'text-negative'}`}>
-                    {c?.enabled ? 'ON' : 'OFF'}
-                  </span>
-                </div>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {typeof c?.min_fair_value_edge === 'number' && (
-                    <span className="inline-block text-[9px] font-bold uppercase text-positive bg-positive/10 border border-positive/30 px-1 py-0.5 rounded-xs">
-                      FV +{(c.min_fair_value_edge * 100).toFixed(1)}¢
-                    </span>
-                  )}
-                  {typeof c?.entry_share_price === 'number' && typeof c?.max_entry_price === 'number' && (
-                    <span className="inline-block text-[9px] font-bold uppercase text-text-secondary bg-bg-secondary border border-border px-1 py-0.5 rounded-xs">
-                      ${c.entry_share_price.toFixed(2)}–${c.max_entry_price.toFixed(2)}
-                    </span>
-                  )}
-                  {typeof c?.num_shares === 'number' && (
-                    <span className="inline-block text-[9px] font-bold uppercase text-text-secondary bg-bg-secondary border border-border px-1 py-0.5 rounded-xs">
-                      {c.num_shares} sh
-                    </span>
-                  )}
-                </div>
-              </div>
-            )) : null;
-          } catch {
-            return null;
-          }
-        })()}
+        {parsedConfigs.map((c) => (
+          <div key={c?.market_type} className="bg-bg-tertiary border border-border rounded-lg p-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold font-mono text-text-primary truncate">{c?.market_type}</span>
+              <span className={`text-[10px] uppercase ${c?.enabled ? 'text-positive' : 'text-negative'}`}>
+                {c?.enabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <div className="mt-1 flex flex-wrap gap-1">
+              <span className="inline-block text-[9px] font-bold uppercase text-positive bg-positive/10 border border-positive/30 px-1 py-0.5 rounded-xs">
+                {formatEdgeBadge(c)}
+              </span>
+              {typeof c?.entry_share_price === 'number' && typeof c?.max_entry_price === 'number' && (
+                <span className="inline-block text-[9px] font-bold uppercase text-text-secondary bg-bg-secondary border border-border px-1 py-0.5 rounded-xs">
+                  ${c.entry_share_price.toFixed(2)}–${c.max_entry_price.toFixed(2)}
+                </span>
+              )}
+              {typeof c?.num_shares === 'number' && (
+                <span className="inline-block text-[9px] font-bold uppercase text-text-secondary bg-bg-secondary border border-border px-1 py-0.5 rounded-xs">
+                  {c.num_shares} sh
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* JSON editor */}

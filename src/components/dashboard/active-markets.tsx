@@ -17,6 +17,9 @@ const ALL_MARKETS = [
   { id: 'sol-15m', asset: 'SOL', window: '15m' },
   { id: 'doge-5m', asset: 'DOGE', window: '5m' },
   { id: 'doge-15m', asset: 'DOGE', window: '15m' },
+  { id: 'bnb-5m', asset: 'BNB', window: '5m' },
+  { id: 'xrp-5m', asset: 'XRP', window: '5m' },
+  { id: 'hype-5m', asset: 'HYPE', window: '5m' },
 ];
 
 function formatDistance(asset: string, value: number): string {
@@ -117,6 +120,7 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
     if (!socket) return;
 
     const handler = (data: MidMarketState) => {
+      if (data.type === 'heartbeat') return;
       const mt = (data as any).market_type || 'btc-5m';
       if (!marketsRef.current[mt]) return;
 
@@ -132,10 +136,13 @@ export const ActiveMarkets = memo(function ActiveMarkets({ enabledMarkets }: Act
           return { ...prev, [mt]: updated };
         }
 
-        if (data.up_price != null) updated.upPrice = Math.round(data.up_price * 100) / 100;
-        if (data.down_price != null) updated.downPrice = Math.round(data.down_price * 100) / 100;
+        const effectiveUp = data.ask_up ?? data.up_price;
+        const effectiveDown = data.ask_down ?? data.down_price;
+        const effectiveDist = data.pm_price_distance ?? data.price_distance;
+        if (effectiveUp != null) updated.upPrice = Math.round(effectiveUp * 100) / 100;
+        if (effectiveDown != null) updated.downPrice = Math.round(effectiveDown * 100) / 100;
         if (data.strike_price != null) updated.strikePrice = data.strike_price;
-        if (data.price_distance != null) updated.priceDistance = Math.round(data.price_distance * 10) / 10;
+        if (effectiveDist != null) updated.priceDistance = Math.round(effectiveDist * 10) / 10;
         if (data.window_end_ts && data.window_end_ts > 0) updated.windowEndTs = data.window_end_ts;
         if (data.position) updated.position = data.position;
         if (data.type === 'stop_sell') updated.position = null;

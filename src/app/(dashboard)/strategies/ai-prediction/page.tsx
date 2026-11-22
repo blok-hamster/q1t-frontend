@@ -19,6 +19,9 @@ const MARKET_LABELS: Record<string, { label: string; asset: string }> = {
   'sol-15m': { label: 'SOL 15m', asset: 'SOL' },
   'doge-5m': { label: 'DOGE 5m', asset: 'DOGE' },
   'doge-15m': { label: 'DOGE 15m', asset: 'DOGE' },
+  'bnb-5m': { label: 'BNB 5m', asset: 'BNB' },
+  'xrp-5m': { label: 'XRP 5m', asset: 'XRP' },
+  'hype-5m': { label: 'HYPE 5m', asset: 'HYPE' },
 };
 
 const DEFAULT_AI_V2: Omit<AiV2Config, 'market_type'> = {

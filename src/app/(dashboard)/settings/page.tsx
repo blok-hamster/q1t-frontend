@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { settingsApi } from '@/lib/api';
+import { settingsApi, portfolioApi } from '@/lib/api';
 import { StrategySelectionPanel } from '@/components/settings/strategy-selection-panel';
 import { SecuritySettings } from '@/components/settings/security-settings';
 import { PrivateKeySetup } from '@/components/settings/private-key-setup';
@@ -15,13 +15,20 @@ import { User } from 'lucide-react';
 export default function SettingsPage() {
   const { user } = useAuth();
   const [settings, setSettings] = useState<any>(null);
+  const [liveUsdc, setLiveUsdc] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data = await settingsApi.getSettings();
+        const [data, bal] = await Promise.all([
+          settingsApi.getSettings(),
+          portfolioApi.getBalances().catch(() => null),
+        ]);
         setSettings(data);
+        if (bal && typeof bal.usdc === 'number' && bal.usdc > 0) {
+          setLiveUsdc(bal.usdc);
+        }
       } catch (error) {
         toast.error('Failed to load system preferences');
       } finally {
@@ -100,7 +107,19 @@ export default function SettingsPage() {
       <StrategySelectionPanel
         initialStrategy={settings?.strategySelection || { active_strategies: ['mid_market'], mid_market_markets: ['btc-5m'] }}
         marketConfigs={settings?.marketConfigs || []}
+        riskConfig={settings?.riskConfig}
+        balanceUsd={settings?.isActive && liveUsdc > 0 ? liveUsdc : (settings?.paperBalance ?? (liveUsdc > 0 ? liveUsdc : 1000))}
         onUpdate={(newStrategy) => setSettings((prev: any) => ({ ...prev, strategySelection: newStrategy }))}
+        onRiskConfigUpdate={(nextRc, nextMcs) =>
+          setSettings((prev: any) => ({
+            ...prev,
+            riskConfig: nextRc,
+            ...(nextMcs ? { marketConfigs: nextMcs } : {}),
+          }))
+        }
+        onMarketConfigsUpdate={(updatedConfigs) =>
+          setSettings((prev: any) => ({ ...prev, marketConfigs: updatedConfigs }))
+        }
       />
 
       {/* Security Settings */}
